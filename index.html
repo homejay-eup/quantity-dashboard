@@ -462,7 +462,7 @@ function renderMonthlyReport() {
   const body  = document.getElementById('rpt-m-body');
   if (!year || !month) { body.innerHTML = '<div class="rpt-placeholder">請選擇年份與月份</div>'; return; }
   const data = allData.filter(r => r.year === year && r.month === month);
-  body.innerHTML = buildBlock12(data) + buildBlock3(data) + buildBlock4Monthly(data);
+  body.innerHTML = buildBlock12(data) + buildBlock3(data) + buildBlock4Monthly(data, Number(year), Number(month));
 }
 
 // ── 周報 ──
@@ -552,7 +552,9 @@ function buildBlock3(data) {
 }
 
 // ④ 月報：週別細項
-function buildBlock4Monthly(data) {
+function buildBlock4Monthly(data, year, month) {
+  const firstDayOfWeek = new Date(year, month - 1, 1).getDay();
+  const firstMondayDate = 1 + (1 - firstDayOfWeek + 7) % 7;
   const map = {};
   data.forEach(r => {
     const key = `${r.productCode}\0${r.productName}\0${r.workType}`;
@@ -561,7 +563,11 @@ function buildBlock4Monthly(data) {
     if (r.week >= 1 && r.week <= 5) map[key].w[r.week] += r.qty;
   });
   const rows = Object.values(map).sort((a,b) => b.total-a.total);
-  const thCols = [1,2,3,4,5].map(w => `<th class="r">第${w}週</th>`).join('');
+  const thCols = [1,2,3,4,5].map(w => {
+    const mon = firstMondayDate + (w - 1) * 7;
+    const fri = mon + 4;
+    return `<th class="r">第${w}週<br><span style="font-weight:normal;font-size:0.85em">${month}/${mon}~${month}/${fri}</span></th>`;
+  }).join('');
   const body = rows.map(row => {
     const wCells = [1,2,3,4,5].map(w => {
       const v = row.w[w];
@@ -579,10 +585,12 @@ function buildBlock4Monthly(data) {
 
 // ④ 周報：日別細項
 function buildBlock4Weekly(data, year, month, week) {
-  const startDay = (week - 1) * 7 + 1;
+  const firstDayOfWeek = new Date(year, month - 1, 1).getDay();
+  const firstMondayDate = 1 + (1 - firstDayOfWeek + 7) % 7;
+  const startDay = firstMondayDate + (week - 1) * 7;
   const lastDay  = new Date(year, month, 0).getDate();
   const days = [];
-  for (let d = startDay; d <= Math.min(startDay + 6, lastDay); d++) days.push(d);
+  for (let d = startDay; d <= Math.min(startDay + 4, lastDay); d++) days.push(d);
 
   const map = {};
   data.forEach(r => {
