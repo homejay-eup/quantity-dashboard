@@ -152,6 +152,51 @@
     font-size: 0.85rem; background: #fff; color: #333;
   }
   .date-sep { color: #888; font-size: 0.9rem; padding: 0 4px; }
+
+  /* 共用篩選列 */
+  .report-filter-bar {
+    background: #fff; padding: 10px 24px; display: flex;
+    gap: 12px; align-items: center; border-bottom: 1px solid #e0e0e0; flex-wrap: wrap;
+  }
+  .rpt-filter-wrap { position: relative; }
+  .rpt-filter-btn {
+    display: flex; align-items: center; gap: 6px; padding: 6px 12px;
+    border: 1px solid #ccc; border-radius: 4px; background: #fff;
+    cursor: pointer; font-size: 0.85rem; white-space: nowrap;
+  }
+  .rpt-filter-btn:hover { border-color: #1a73e8; color: #1a73e8; }
+  .filter-badge {
+    background: #e8f0fe; color: #1a73e8;
+    border-radius: 10px; padding: 1px 8px; font-size: 0.75rem; font-weight: 600;
+  }
+  .filter-badge.partial { background: #fff3e0; color: #f57c00; }
+  .rpt-filter-panel {
+    position: absolute; top: calc(100% + 4px); left: 0; z-index: 200;
+    background: #fff; border: 1px solid #ddd; border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.12); min-width: 220px; overflow: hidden;
+  }
+  .panel-search {
+    display: flex; gap: 6px; padding: 8px 10px; border-bottom: 1px solid #f0f0f0;
+  }
+  .panel-search input {
+    flex: 1; padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px;
+    font-size: 0.82rem; outline: none;
+  }
+  .panel-search input:focus { border-color: #1a73e8; }
+  .reset-btn {
+    padding: 4px 10px; border: 1px solid #ccc; border-radius: 4px;
+    background: #fff; cursor: pointer; font-size: 0.8rem; white-space: nowrap;
+  }
+  .reset-btn:hover { border-color: #ea4335; color: #ea4335; }
+  .panel-header { border-bottom: 1px solid #f0f0f0; }
+  .panel-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 12px; font-size: 0.82rem; cursor: pointer;
+  }
+  .panel-item:hover { background: #f5f8ff; }
+  .panel-item input[type="checkbox"] { cursor: pointer; flex-shrink: 0; }
+  .rpt-panel-list { max-height: 220px; overflow-y: auto; }
+  .p-code { color: #999; font-size: 0.78rem; min-width: 62px; flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -185,6 +230,43 @@
     <button class="active" data-tab="dashboard" onclick="switchTab('dashboard')">儀表板</button>
     <button data-tab="monthly" onclick="switchTab('monthly')">月報</button>
     <button data-tab="weekly" onclick="switchTab('weekly')">周報</button>
+  </div>
+
+  <!-- 共用篩選列（月報/周報顯示） -->
+  <div id="report-filter-bar" class="report-filter-bar" style="display:none">
+    <!-- 人員篩選 -->
+    <div class="rpt-filter-wrap">
+      <button class="rpt-filter-btn" onclick="togglePersonPanel()">
+        👤 人員 <span class="filter-badge" id="person-badge">全部</span>
+      </button>
+      <div class="rpt-filter-panel" id="person-panel" style="display:none">
+        <div class="panel-header">
+          <label class="panel-item">
+            <input type="checkbox" id="person-all-cb" checked onchange="onPersonAllChange(this)"> 全部
+          </label>
+        </div>
+        <div id="person-list"></div>
+      </div>
+    </div>
+    <!-- 品項篩選 -->
+    <div class="rpt-filter-wrap">
+      <button class="rpt-filter-btn" onclick="toggleProductPanel()">
+        📦 品項 <span class="filter-badge" id="product-badge">全部</span>
+      </button>
+      <div class="rpt-filter-panel" id="product-panel" style="display:none">
+        <div class="panel-search">
+          <input type="text" id="product-search" placeholder="🔍 搜尋品號/品名" oninput="onProductSearch(this.value)">
+          <button class="reset-btn" onclick="resetProductFilter()">重設全部</button>
+        </div>
+        <div class="panel-header">
+          <label class="panel-item">
+            <input type="checkbox" id="product-all-cb" onchange="onProductAllChange(this)">
+            全部（<span id="product-total">0</span> 項）
+          </label>
+        </div>
+        <div id="product-list" class="rpt-panel-list"></div>
+      </div>
+    </div>
   </div>
 
   <!-- 儀表板 -->
@@ -287,12 +369,16 @@ function logout() {
 }
 
 // ── Tab ──
+let activeReportTab = null;
 function switchTab(tab) {
   document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
   document.querySelector(`.tab-bar button[data-tab="${tab}"]`).classList.add('active');
   ['dashboard','monthly','weekly'].forEach(id =>
     document.getElementById('tab-' + id).style.display = 'none');
   document.getElementById('tab-' + tab).style.display = 'block';
+  const isReport = tab === 'monthly' || tab === 'weekly';
+  document.getElementById('report-filter-bar').style.display = isReport ? 'flex' : 'none';
+  activeReportTab = isReport ? tab : null;
 }
 
 // ── 載入資料 ──
@@ -317,6 +403,7 @@ async function loadData() {
       remark:      String(r['備註'] || ''),
     })).filter(r => r.date);
     populateFilters();
+    initProductList();
     render();
     const now = new Date();
     const dateStr = now.toLocaleDateString('zh-TW', {year:'numeric', month:'2-digit', day:'2-digit'});
@@ -397,6 +484,11 @@ function getFiltered() {
   );
 }
 
+// 點擊面板外部時關閉
+document.addEventListener('click', e => {
+  if (!e.target.closest('.rpt-filter-wrap')) closeAllPanels();
+});
+
 document.getElementById('filter-month').addEventListener('change', () => {
   const m = document.getElementById('filter-month').value;
   populateWeeks(m ? allData.filter(r => r.month === m) : allData);
@@ -444,13 +536,192 @@ function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// ── 篩選狀態 ──
+let filterPersons  = new Set();  // empty = 全部
+let filterProducts = null;        // null = 全部；else Set<productKey>
+let allProductList = [];          // [{key, code, name}]
+const LS_KEY = 'eup-qty-products';
+
+function productKey(r) {
+  return (r.productCode || '') + '||' + (r.productName || '');
+}
+function escAttr(s) {
+  return String(s || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function initProductList() {
+  const seen = new Set();
+  allProductList = [];
+  allData.forEach(r => {
+    const k = productKey(r);
+    if (!seen.has(k) && (r.productCode || r.productName)) {
+      seen.add(k);
+      allProductList.push({ key: k, code: r.productCode || '', name: r.productName || '' });
+    }
+  });
+  allProductList.sort((a, b) => a.code.localeCompare(b.code) || a.name.localeCompare(b.name));
+
+  // 從 localStorage 還原
+  try {
+    const saved = JSON.parse(localStorage.getItem(LS_KEY));
+    if (Array.isArray(saved) && saved.length > 0) {
+      const valid = saved.filter(k => allProductList.some(p => p.key === k));
+      filterProducts = valid.length === allProductList.length ? null : (valid.length ? new Set(valid) : null);
+    }
+  } catch (e) {}
+
+  renderPersonPanel();
+  renderProductPanel('');
+  updateFilterBadges();
+}
+
+function getFilteredData(start, end) {
+  let d = allData.filter(r => r.date >= start && r.date <= end);
+  if (filterPersons.size > 0)   d = d.filter(r => filterPersons.has(r.person));
+  if (filterProducts !== null)  d = d.filter(r => filterProducts.has(productKey(r)));
+  return d;
+}
+
+function rerender() {
+  if (activeReportTab === 'monthly') renderMonthlyReport();
+  else if (activeReportTab === 'weekly') renderWeeklyReport();
+}
+
+// ── 人員篩選 ──
+function togglePersonPanel() {
+  const p = document.getElementById('person-panel');
+  const open = p.style.display !== 'none';
+  closeAllPanels();
+  if (!open) p.style.display = 'block';
+}
+
+function renderPersonPanel() {
+  const allSel = filterPersons.size === 0;
+  document.getElementById('person-all-cb').checked = allSel;
+  document.getElementById('person-all-cb').indeterminate = false;
+  document.getElementById('person-list').innerHTML = PEOPLE.map(p => `
+    <label class="panel-item">
+      <input type="checkbox" class="person-cb" value="${escAttr(p)}"
+        ${allSel || filterPersons.has(p) ? 'checked' : ''} onchange="onPersonChange()">
+      ${esc(p)}
+    </label>`).join('');
+}
+
+function onPersonChange() {
+  const checked = [...document.querySelectorAll('.person-cb:checked')].map(cb => cb.value);
+  filterPersons = checked.length === PEOPLE.length ? new Set() : new Set(checked);
+  const allCb = document.getElementById('person-all-cb');
+  allCb.checked = filterPersons.size === 0;
+  allCb.indeterminate = filterPersons.size > 0 && filterPersons.size < PEOPLE.length;
+  updateFilterBadges(); rerender();
+}
+
+function onPersonAllChange(el) {
+  filterPersons = new Set();
+  document.querySelectorAll('.person-cb').forEach(cb => cb.checked = true);
+  el.indeterminate = false;
+  updateFilterBadges(); rerender();
+}
+
+// ── 品項篩選 ──
+function toggleProductPanel() {
+  const p = document.getElementById('product-panel');
+  const open = p.style.display !== 'none';
+  closeAllPanels();
+  if (!open) p.style.display = 'block';
+}
+
+function renderProductPanel(query) {
+  const total = allProductList.length;
+  document.getElementById('product-total').textContent = total;
+  const allSel = filterProducts === null;
+  const allCb = document.getElementById('product-all-cb');
+  allCb.checked = allSel;
+  allCb.indeterminate = !allSel && filterProducts && filterProducts.size > 0;
+
+  const q = (query || '').toLowerCase();
+  const visible = q ? allProductList.filter(p => p.code.toLowerCase().includes(q) || p.name.toLowerCase().includes(q)) : allProductList;
+  document.getElementById('product-list').innerHTML = visible.map(p => `
+    <label class="panel-item">
+      <input type="checkbox" class="product-cb" data-key="${escAttr(p.key)}"
+        ${allSel || (filterProducts && filterProducts.has(p.key)) ? 'checked' : ''}
+        onchange="onProductChange()">
+      <span class="p-code">${esc(p.code)}</span>${esc(p.name)}
+    </label>`).join('');
+}
+
+function onProductSearch(q) { renderProductPanel(q); }
+
+function onProductChange() {
+  const allKeys = new Set(allProductList.map(p => p.key));
+  // 取目前 DOM 勾選（勾選的 + 未渲染的維持原狀）
+  const visibleCbs = [...document.querySelectorAll('.product-cb')];
+  const visibleKeys = new Set(visibleCbs.map(cb => cb.dataset.key));
+  const checkedVisible = new Set(visibleCbs.filter(cb => cb.checked).map(cb => cb.dataset.key));
+
+  if (filterProducts === null) {
+    // 原本全選，取消一個 → 建立 Set（排除取消的）
+    filterProducts = new Set([...allKeys].filter(k => !visibleKeys.has(k) || checkedVisible.has(k)));
+  } else {
+    // 更新可見部分
+    visibleKeys.forEach(k => filterProducts.delete(k));
+    checkedVisible.forEach(k => filterProducts.add(k));
+  }
+  if (filterProducts.size === allKeys.size) filterProducts = null;
+  if (filterProducts && filterProducts.size === 0) filterProducts = null;
+
+  saveProductFilter();
+  renderProductPanel(document.getElementById('product-search').value);
+  updateFilterBadges(); rerender();
+}
+
+function onProductAllChange(el) {
+  filterProducts = null;
+  document.querySelectorAll('.product-cb').forEach(cb => cb.checked = true);
+  el.indeterminate = false;
+  saveProductFilter();
+  updateFilterBadges(); rerender();
+}
+
+function resetProductFilter() {
+  filterProducts = null;
+  document.getElementById('product-search').value = '';
+  saveProductFilter();
+  renderProductPanel('');
+  updateFilterBadges(); rerender();
+}
+
+function saveProductFilter() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(filterProducts ? [...filterProducts] : null));
+  } catch (e) {}
+}
+
+// ── badge ──
+function updateFilterBadges() {
+  const pb = document.getElementById('person-badge');
+  if (filterPersons.size === 0) { pb.textContent = '全部'; pb.className = 'filter-badge'; }
+  else { pb.textContent = filterPersons.size + ' 人'; pb.className = 'filter-badge partial'; }
+
+  const prb = document.getElementById('product-badge');
+  if (filterProducts === null) { prb.textContent = '全部'; prb.className = 'filter-badge'; }
+  else { prb.textContent = `${filterProducts.size}/${allProductList.length} 項`; prb.className = 'filter-badge partial'; }
+}
+
+function closeAllPanels() {
+  ['person-panel','product-panel'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+}
+
 // ── 月報 ──
 function renderMonthlyReport() {
   const start = document.getElementById('rpt-m-start').value;
   const end   = document.getElementById('rpt-m-end').value;
   const body  = document.getElementById('rpt-m-body');
   if (!start || !end || start > end) { body.innerHTML = '<div class="rpt-placeholder">請選擇開始與結束日期</div>'; return; }
-  const data = allData.filter(r => r.date >= start && r.date <= end);
+  const data = getFilteredData(start, end);
   body.innerHTML = buildBlock12(data) + buildBlock3(data) + buildBlock4Monthly(data, start, end);
 }
 
@@ -460,7 +731,7 @@ function renderWeeklyReport() {
   const end   = document.getElementById('rpt-w-end').value;
   const body  = document.getElementById('rpt-w-body');
   if (!start || !end || start > end) { body.innerHTML = '<div class="rpt-placeholder">請選擇開始與結束日期</div>'; return; }
-  const data = allData.filter(r => r.date >= start && r.date <= end);
+  const data = getFilteredData(start, end);
   body.innerHTML = buildBlock12(data) + buildBlock3(data) + buildBlock4Weekly(data, start, end);
 }
 
@@ -510,9 +781,10 @@ function buildBlock2(data) {
 
 // ③ 各人員作業量
 function buildBlock3(data) {
+  const persons = filterPersons.size > 0 ? PEOPLE.filter(p => filterPersons.has(p)) : PEOPLE;
   const matrix = {};
   const pTot = {}, wTot = {};
-  PEOPLE.forEach(p => { matrix[p] = {}; pTot[p] = 0; WTYPES.forEach(wt => matrix[p][wt] = 0); });
+  persons.forEach(p => { matrix[p] = {}; pTot[p] = 0; WTYPES.forEach(wt => matrix[p][wt] = 0); });
   WTYPES.forEach(wt => wTot[wt] = 0);
   data.forEach(r => {
     if (matrix[r.person] !== undefined && r.workType in matrix[r.person]) {
@@ -521,9 +793,9 @@ function buildBlock3(data) {
       wTot[r.workType] += r.qty;
     }
   });
-  const grand = PEOPLE.reduce((s,p) => s + pTot[p], 0);
+  const grand = persons.reduce((s,p) => s + pTot[p], 0);
   const thCols = WTYPES.map(wt => `<th class="r">${esc(wt)}</th>`).join('');
-  const dataRows = PEOPLE.map(p => {
+  const dataRows = persons.map(p => {
     const cells = WTYPES.map(wt => {
       const v = matrix[p][wt];
       return `<td class="r${v===0?' zero':''}">${v===0?'—':v.toLocaleString()}</td>`;
