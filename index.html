@@ -232,43 +232,6 @@
     <button data-tab="weekly" onclick="switchTab('weekly')">周報</button>
   </div>
 
-  <!-- 共用篩選列（月報/周報顯示） -->
-  <div id="report-filter-bar" class="report-filter-bar" style="display:none">
-    <!-- 人員篩選 -->
-    <div class="rpt-filter-wrap">
-      <button class="rpt-filter-btn" onclick="togglePersonPanel()">
-        👤 人員 <span class="filter-badge" id="person-badge">全部</span>
-      </button>
-      <div class="rpt-filter-panel" id="person-panel" style="display:none">
-        <div class="panel-header">
-          <label class="panel-item">
-            <input type="checkbox" id="person-all-cb" checked onchange="onPersonAllChange(this)"> 全部
-          </label>
-        </div>
-        <div id="person-list"></div>
-      </div>
-    </div>
-    <!-- 品項篩選 -->
-    <div class="rpt-filter-wrap">
-      <button class="rpt-filter-btn" onclick="toggleProductPanel()">
-        📦 品項 <span class="filter-badge" id="product-badge">全部</span>
-      </button>
-      <div class="rpt-filter-panel" id="product-panel" style="display:none">
-        <div class="panel-search">
-          <input type="text" id="product-search" placeholder="🔍 搜尋品號/品名" oninput="onProductSearch(this.value)">
-          <button class="reset-btn" onclick="resetProductFilter()">重設全部</button>
-        </div>
-        <div class="panel-header">
-          <label class="panel-item">
-            <input type="checkbox" id="product-all-cb" onchange="onProductAllChange(this)">
-            全部（<span id="product-total">0</span> 項）
-          </label>
-        </div>
-        <div id="product-list" class="rpt-panel-list"></div>
-      </div>
-    </div>
-  </div>
-
   <!-- 儀表板 -->
   <div id="tab-dashboard">
     <div class="filter-bar">
@@ -310,6 +273,7 @@
         <label>開始日期<input type="date" id="rpt-m-start" onchange="renderMonthlyReport()"></label>
         <span class="date-sep">～</span>
         <label>結束日期<input type="date" id="rpt-m-end" onchange="renderMonthlyReport()"></label>
+        <div id="m-filter-slot" style="display:contents"></div>
         <span class="rpt-date" id="rpt-m-today"></span>
       </div>
       <div id="rpt-m-body"><div class="rpt-placeholder">請選擇開始與結束日期</div></div>
@@ -323,6 +287,7 @@
         <label>開始日期<input type="date" id="rpt-w-start" onchange="renderWeeklyReport()"></label>
         <span class="date-sep">～</span>
         <label>結束日期<input type="date" id="rpt-w-end" onchange="renderWeeklyReport()"></label>
+        <div id="w-filter-slot" style="display:contents"></div>
         <span class="rpt-date" id="rpt-w-today"></span>
       </div>
       <div id="rpt-w-body"><div class="rpt-placeholder">請選擇開始與結束日期</div></div>
@@ -376,9 +341,7 @@ function switchTab(tab) {
   ['dashboard','monthly','weekly'].forEach(id =>
     document.getElementById('tab-' + id).style.display = 'none');
   document.getElementById('tab-' + tab).style.display = 'block';
-  const isReport = tab === 'monthly' || tab === 'weekly';
-  document.getElementById('report-filter-bar').style.display = isReport ? 'flex' : 'none';
-  activeReportTab = isReport ? tab : null;
+  activeReportTab = (tab === 'monthly' || tab === 'weekly') ? tab : null;
 }
 
 // ── 載入資料 ──
@@ -537,182 +500,219 @@ function esc(s) {
 }
 
 // ── 篩選狀態 ──
-let filterPersons  = new Set();  // empty = 全部
-let filterProducts = null;        // null = 全部；else Set<productKey>
-let allProductList = [];          // [{key, code, name}]
+let filterPersons   = null;   // null=全部, Set=選擇的人
+let filterWorkTypes = null;   // null=全部, Set=選擇的作業類型
+let filterItemTypes = null;   // null=全部, Set=選擇的品項類型
+let filterProducts  = null;   // null=全部, Set<productKey>
+let allProductList  = [];
+let allWorkTypeList = [];
+let allItemTypeList = [];
 const LS_KEY = 'eup-qty-products';
 
-function productKey(r) {
-  return (r.productCode || '') + '||' + (r.productName || '');
-}
-function escAttr(s) {
-  return String(s || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
+function productKey(r) { return (r.productCode||'')+'||'+(r.productName||''); }
+function escAttr(s)    { return String(s||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+function getFilterState(t){ return t==='person'?filterPersons:t==='wtype'?filterWorkTypes:t==='itype'?filterItemTypes:filterProducts; }
+function setFilterState(t,v){ if(t==='person')filterPersons=v;else if(t==='wtype')filterWorkTypes=v;else if(t==='itype')filterItemTypes=v;else filterProducts=v; }
+function getItemList(t){ return t==='person'?PEOPLE:t==='wtype'?allWorkTypeList:t==='itype'?allItemTypeList:[]; }
 
 function initProductList() {
-  const seen = new Set();
-  allProductList = [];
-  allData.forEach(r => {
-    const k = productKey(r);
-    if (!seen.has(k) && (r.productCode || r.productName)) {
-      seen.add(k);
-      allProductList.push({ key: k, code: r.productCode || '', name: r.productName || '' });
-    }
+  const sP=new Set(),sW=new Set(),sI=new Set();
+  allProductList=[]; allWorkTypeList=[]; allItemTypeList=[];
+  allData.forEach(r=>{
+    const k=productKey(r);
+    if(!sP.has(k)&&(r.productCode||r.productName)){sP.add(k);allProductList.push({key:k,code:r.productCode||'',name:r.productName||''});}
+    if(r.workType&&!sW.has(r.workType)){sW.add(r.workType);allWorkTypeList.push(r.workType);}
+    if(r.itemType&&!sI.has(r.itemType)){sI.add(r.itemType);allItemTypeList.push(r.itemType);}
   });
-  allProductList.sort((a, b) => a.code.localeCompare(b.code) || a.name.localeCompare(b.name));
-
-  // 從 localStorage 還原
-  try {
-    const saved = JSON.parse(localStorage.getItem(LS_KEY));
-    if (Array.isArray(saved) && saved.length > 0) {
-      const valid = saved.filter(k => allProductList.some(p => p.key === k));
-      filterProducts = valid.length === allProductList.length ? null : (valid.length ? new Set(valid) : null);
+  allProductList.sort((a,b)=>a.code.localeCompare(b.code)||a.name.localeCompare(b.name));
+  allWorkTypeList.sort(); allItemTypeList.sort();
+  try{
+    const saved=JSON.parse(localStorage.getItem(LS_KEY));
+    if(Array.isArray(saved)&&saved.length>0){
+      const valid=saved.filter(k=>allProductList.some(p=>p.key===k));
+      if(valid.length>0&&valid.length<allProductList.length) filterProducts=new Set(valid);
     }
-  } catch (e) {}
-
-  renderPersonPanel();
-  renderProductPanel('');
+  }catch(e){}
+  ['m','w'].forEach(injectFilterControls);
   updateFilterBadges();
 }
 
+function injectFilterControls(p) {
+  const slot=document.getElementById(p+'-filter-slot'); if(!slot) return;
+  slot.innerHTML=
+    mkListFilter(p,'person','\u{1F464}','人員')+
+    mkListFilter(p,'wtype','\u{1F4CB}','作業類型')+
+    mkListFilter(p,'itype','\u{1F3F7}️','品項類型')+
+    mkProductFilter(p);
+}
+function mkListFilter(p,type,em,label){
+  return '<div class="rpt-filter-wrap">'
+    +'<button class="rpt-filter-btn" onclick="toggleFP(\''+p+'\',\''+type+'\')"> '
+    +em+' '+label+' <span class="filter-badge" id="'+p+'-'+type+'-badge">全部</span></button>'
+    +'<div class="rpt-filter-panel" id="'+p+'-'+type+'-panel" style="display:none">'
+    +'<div class="panel-header"><label class="panel-item">'
+    +'<input type="checkbox" id="'+p+'-'+type+'-all" checked onchange="onAllChange(\''+p+'\',\''+type+'\',this)"> 全部'
+    +'</label></div>'
+    +'<div id="'+p+'-'+type+'-list" class="rpt-panel-list"></div>'
+    +'</div></div>';
+}
+function mkProductFilter(p){
+  return '<div class="rpt-filter-wrap">'
+    +'<button class="rpt-filter-btn" onclick="toggleFP(\''+p+'\',\'product\')">'
+    +'\u{1F4E6} 品項 <span class="filter-badge" id="'+p+'-product-badge">全部</span></button>'
+    +'<div class="rpt-filter-panel" id="'+p+'-product-panel" style="display:none">'
+    +'<div class="panel-search">'
+    +'<input type="text" id="'+p+'-product-search" placeholder="\u{1F50D} 搜尋品號/品名" oninput="onProductSearch(\''+p+'\',this.value)">'
+    +'<button class="reset-btn" onclick="resetProductFilter()">重設</button>'
+    +'</div>'
+    +'<div class="panel-header"><label class="panel-item">'
+    +'<input type="checkbox" id="'+p+'-product-all" onchange="onProductAllChange(\''+p+'\',this)">'
+    +'全部（<span id="'+p+'-product-total">0</span> 項）'
+    +'</label></div>'
+    +'<div id="'+p+'-product-list" class="rpt-panel-list"></div>'
+    +'</div></div>';
+}
+
 function getFilteredData(start, end) {
-  let d = allData.filter(r => r.date >= start && r.date <= end);
-  if (filterPersons.size > 0)   d = d.filter(r => filterPersons.has(r.person));
-  if (filterProducts !== null)  d = d.filter(r => filterProducts.has(productKey(r)));
+  let d=allData.filter(r=>r.date>=start&&r.date<=end);
+  if(filterPersons  !==null) d=d.filter(r=>filterPersons.has(r.person));
+  if(filterWorkTypes!==null) d=d.filter(r=>filterWorkTypes.has(r.workType));
+  if(filterItemTypes!==null) d=d.filter(r=>filterItemTypes.has(r.itemType));
+  if(filterProducts !==null) d=d.filter(r=>filterProducts.has(productKey(r)));
   return d;
 }
 
 function rerender() {
-  if (activeReportTab === 'monthly') renderMonthlyReport();
-  else if (activeReportTab === 'weekly') renderWeeklyReport();
+  if(activeReportTab==='monthly') renderMonthlyReport();
+  else if(activeReportTab==='weekly') renderWeeklyReport();
 }
 
-// ── 人員篩選 ──
-function togglePersonPanel() {
-  const p = document.getElementById('person-panel');
-  const open = p.style.display !== 'none';
+function toggleFP(prefix, type) {
+  const panel=document.getElementById(prefix+'-'+type+'-panel'); if(!panel) return;
+  const open=panel.style.display!=='none';
   closeAllPanels();
-  if (!open) p.style.display = 'block';
-}
-
-function renderPersonPanel() {
-  const allSel = filterPersons.size === 0;
-  document.getElementById('person-all-cb').checked = allSel;
-  document.getElementById('person-all-cb').indeterminate = false;
-  document.getElementById('person-list').innerHTML = PEOPLE.map(p => `
-    <label class="panel-item">
-      <input type="checkbox" class="person-cb" value="${escAttr(p)}"
-        ${allSel || filterPersons.has(p) ? 'checked' : ''} onchange="onPersonChange()">
-      ${esc(p)}
-    </label>`).join('');
-}
-
-function onPersonChange() {
-  const checked = [...document.querySelectorAll('.person-cb:checked')].map(cb => cb.value);
-  filterPersons = checked.length === PEOPLE.length ? new Set() : new Set(checked);
-  const allCb = document.getElementById('person-all-cb');
-  allCb.checked = filterPersons.size === 0;
-  allCb.indeterminate = filterPersons.size > 0 && filterPersons.size < PEOPLE.length;
-  updateFilterBadges(); rerender();
-}
-
-function onPersonAllChange(el) {
-  filterPersons = new Set();
-  document.querySelectorAll('.person-cb').forEach(cb => cb.checked = true);
-  el.indeterminate = false;
-  updateFilterBadges(); rerender();
-}
-
-// ── 品項篩選 ──
-function toggleProductPanel() {
-  const p = document.getElementById('product-panel');
-  const open = p.style.display !== 'none';
-  closeAllPanels();
-  if (!open) p.style.display = 'block';
-}
-
-function renderProductPanel(query) {
-  const total = allProductList.length;
-  document.getElementById('product-total').textContent = total;
-  const allSel = filterProducts === null;
-  const allCb = document.getElementById('product-all-cb');
-  allCb.checked = allSel;
-  allCb.indeterminate = !allSel && filterProducts && filterProducts.size > 0;
-
-  const q = (query || '').toLowerCase();
-  const visible = q ? allProductList.filter(p => p.code.toLowerCase().includes(q) || p.name.toLowerCase().includes(q)) : allProductList;
-  document.getElementById('product-list').innerHTML = visible.map(p => `
-    <label class="panel-item">
-      <input type="checkbox" class="product-cb" data-key="${escAttr(p.key)}"
-        ${allSel || (filterProducts && filterProducts.has(p.key)) ? 'checked' : ''}
-        onchange="onProductChange()">
-      <span class="p-code">${esc(p.code)}</span>${esc(p.name)}
-    </label>`).join('');
-}
-
-function onProductSearch(q) { renderProductPanel(q); }
-
-function onProductChange() {
-  const allKeys = new Set(allProductList.map(p => p.key));
-  // 取目前 DOM 勾選（勾選的 + 未渲染的維持原狀）
-  const visibleCbs = [...document.querySelectorAll('.product-cb')];
-  const visibleKeys = new Set(visibleCbs.map(cb => cb.dataset.key));
-  const checkedVisible = new Set(visibleCbs.filter(cb => cb.checked).map(cb => cb.dataset.key));
-
-  if (filterProducts === null) {
-    // 原本全選，取消一個 → 建立 Set（排除取消的）
-    filterProducts = new Set([...allKeys].filter(k => !visibleKeys.has(k) || checkedVisible.has(k)));
-  } else {
-    // 更新可見部分
-    visibleKeys.forEach(k => filterProducts.delete(k));
-    checkedVisible.forEach(k => filterProducts.add(k));
+  if(!open){
+    const sq=document.getElementById(prefix+'-product-search');
+    if(type==='product') renderProductPanel(prefix, sq?sq.value:'');
+    else renderListPanel(prefix, type);
+    panel.style.display='block';
   }
-  if (filterProducts.size === allKeys.size) filterProducts = null;
-  if (filterProducts && filterProducts.size === 0) filterProducts = null;
+}
+function closeAllPanels(){document.querySelectorAll('.rpt-filter-panel').forEach(p=>p.style.display='none');}
 
-  saveProductFilter();
-  renderProductPanel(document.getElementById('product-search').value);
+function renderListPanel(prefix, type) {
+  const items=getItemList(type), state=getFilterState(type), allSel=state===null;
+  const allCb=document.getElementById(prefix+'-'+type+'-all');
+  if(allCb){allCb.checked=allSel;allCb.indeterminate=!allSel&&state.size>0;}
+  const list=document.getElementById(prefix+'-'+type+'-list');
+  if(list) list.innerHTML=items.map(function(item){
+    return '<label class="panel-item"><input type="checkbox" class="'+prefix+'-'+type+'-cb" value="'+escAttr(item)+'"'
+      +((allSel||(state&&state.has(item)))?' checked':'')
+      +' onchange="onItemChange(\''+prefix+'\',\''+type+'\')">'
+      +esc(item)+'</label>';
+  }).join('');
+}
+
+function onItemChange(prefix, type) {
+  const items=getItemList(type);
+  const cbs=[...document.querySelectorAll('.'+prefix+'-'+type+'-cb')];
+  const checked=cbs.filter(cb=>cb.checked).map(cb=>cb.value);
+  const allCb=document.getElementById(prefix+'-'+type+'-all');
+  if(checked.length===0){
+    cbs.forEach(cb=>cb.checked=true); setFilterState(type,null);
+    if(allCb){allCb.checked=true;allCb.indeterminate=false;}
+  } else if(checked.length===items.length){
+    setFilterState(type,null);
+    if(allCb){allCb.checked=true;allCb.indeterminate=false;}
+  } else {
+    setFilterState(type,new Set(checked));
+    if(allCb){allCb.checked=false;allCb.indeterminate=true;}
+  }
   updateFilterBadges(); rerender();
 }
 
-function onProductAllChange(el) {
-  filterProducts = null;
-  document.querySelectorAll('.product-cb').forEach(cb => cb.checked = true);
-  el.indeterminate = false;
-  saveProductFilter();
+function onAllChange(prefix, type, el) {
+  document.querySelectorAll('.'+prefix+'-'+type+'-cb').forEach(cb=>cb.checked=true);
+  el.checked=true; el.indeterminate=false;
+  setFilterState(type,null);
   updateFilterBadges(); rerender();
+}
+
+function renderProductPanel(prefix, query) {
+  const total=allProductList.length, allSel=filterProducts===null;
+  const allCb=document.getElementById(prefix+'-product-all');
+  const totEl=document.getElementById(prefix+'-product-total');
+  if(totEl) totEl.textContent=total;
+  if(allCb){allCb.checked=allSel;allCb.indeterminate=!allSel&&filterProducts.size>0;}
+  const q=(query||'').toLowerCase();
+  const vis=q?allProductList.filter(p=>p.code.toLowerCase().includes(q)||p.name.toLowerCase().includes(q)):allProductList;
+  const list=document.getElementById(prefix+'-product-list');
+  if(list) list.innerHTML=vis.map(function(p){
+    return '<label class="panel-item"><input type="checkbox" class="'+prefix+'-product-cb" data-key="'+escAttr(p.key)+'"'
+      +((allSel||(filterProducts&&filterProducts.has(p.key)))?' checked':'')
+      +' onchange="onProductChange(\''+prefix+'\')">'
+      +'<span class="p-code">'+esc(p.code)+'</span>'+esc(p.name)+'</label>';
+  }).join('');
+}
+
+function onProductSearch(prefix, q){ renderProductPanel(prefix, q); }
+
+function onProductChange(prefix) {
+  const allKeys=new Set(allProductList.map(p=>p.key));
+  const vcbs=[...document.querySelectorAll('.'+prefix+'-product-cb')];
+  const vKeys=new Set(vcbs.map(cb=>cb.dataset.key));
+  const chk=new Set(vcbs.filter(cb=>cb.checked).map(cb=>cb.dataset.key));
+  let ns=filterProducts?new Set(filterProducts):new Set(allKeys);
+  vKeys.forEach(k=>{if(chk.has(k))ns.add(k);else ns.delete(k);});
+  if(ns.size===0) ns=new Set(allKeys);
+  filterProducts=ns.size===allKeys.size?null:ns;
+  saveProductFilter();
+  const sq=document.getElementById(prefix+'-product-search');
+  renderProductPanel(prefix, sq?sq.value:'');
+  updateFilterBadges(); rerender();
+}
+
+function onProductAllChange(prefix, el) {
+  document.querySelectorAll('.'+prefix+'-product-cb').forEach(cb=>cb.checked=true);
+  el.checked=true; el.indeterminate=false; filterProducts=null;
+  saveProductFilter(); updateFilterBadges(); rerender();
 }
 
 function resetProductFilter() {
-  filterProducts = null;
-  document.getElementById('product-search').value = '';
-  saveProductFilter();
-  renderProductPanel('');
-  updateFilterBadges(); rerender();
+  filterProducts=null;
+  ['m','w'].forEach(t=>{
+    const s=document.getElementById(t+'-product-search'); if(s) s.value='';
+    const p=document.getElementById(t+'-product-panel');
+    if(p&&p.style.display!=='none') renderProductPanel(t,'');
+  });
+  saveProductFilter(); updateFilterBadges(); rerender();
 }
 
 function saveProductFilter() {
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify(filterProducts ? [...filterProducts] : null));
-  } catch (e) {}
+  try{localStorage.setItem(LS_KEY,JSON.stringify(filterProducts?[...filterProducts]:null));}catch(e){}
 }
 
-// ── badge ──
 function updateFilterBadges() {
-  const pb = document.getElementById('person-badge');
-  if (filterPersons.size === 0) { pb.textContent = '全部'; pb.className = 'filter-badge'; }
-  else { pb.textContent = filterPersons.size + ' 人'; pb.className = 'filter-badge partial'; }
-
-  const prb = document.getElementById('product-badge');
-  if (filterProducts === null) { prb.textContent = '全部'; prb.className = 'filter-badge'; }
-  else { prb.textContent = `${filterProducts.size}/${allProductList.length} 項`; prb.className = 'filter-badge partial'; }
+  ['m','w'].forEach(t=>{
+    setBadge(t+'-person-badge',  filterPersons,   PEOPLE.length,         '人');
+    setBadge(t+'-wtype-badge',   filterWorkTypes, allWorkTypeList.length, '類');
+    setBadge(t+'-itype-badge',   filterItemTypes, allItemTypeList.length, '類');
+    setProductBadge(t+'-product-badge');
+  });
+}
+function setBadge(id,state,total,unit){
+  const el=document.getElementById(id); if(!el) return;
+  if(state===null){el.textContent='全部';el.className='filter-badge';}
+  else{el.textContent=state.size+'/'+total+' '+unit;el.className='filter-badge partial';}
+}
+function setProductBadge(id){
+  const el=document.getElementById(id); if(!el) return;
+  if(filterProducts===null){el.textContent='全部';el.className='filter-badge';}
+  else{el.textContent=filterProducts.size+'/'+allProductList.length;el.className='filter-badge partial';}
 }
 
-function closeAllPanels() {
-  ['person-panel','product-panel'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = 'none';
-  });
+);
 }
 
 // ── 月報 ──
@@ -781,7 +781,7 @@ function buildBlock2(data) {
 
 // ③ 各人員作業量
 function buildBlock3(data) {
-  const persons = filterPersons.size > 0 ? PEOPLE.filter(p => filterPersons.has(p)) : PEOPLE;
+  const persons = filterPersons !== null ? PEOPLE.filter(p => filterPersons.has(p)) : PEOPLE;
   const matrix = {};
   const pTot = {}, wTot = {};
   persons.forEach(p => { matrix[p] = {}; pTot[p] = 0; WTYPES.forEach(wt => matrix[p][wt] = 0); });
