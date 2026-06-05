@@ -563,10 +563,14 @@ function buildBlock4Monthly(data, year, month) {
     if (r.week >= 1 && r.week <= 5) map[key].w[r.week] += r.qty;
   });
   const rows = Object.values(map).sort((a,b) => b.total-a.total);
+  const lastDay = new Date(year, month, 0).getDate();
   const thCols = [1,2,3,4,5].map(w => {
     const mon = firstMondayDate + (w - 1) * 7;
-    const fri = mon + 4;
-    return `<th class="r">第${w}週<br><span style="font-weight:normal;font-size:0.85em">${month}/${mon}~${month}/${fri}</span></th>`;
+    const fri = Math.min(mon + 4, lastDay);
+    const label = mon <= lastDay
+      ? `第${w}週<br><span style="font-weight:normal;font-size:0.85em">${month}/${mon}~${month}/${fri}</span>`
+      : `第${w}週`;
+    return `<th class="r">${label}</th>`;
   }).join('');
   const body = rows.map(row => {
     const wCells = [1,2,3,4,5].map(w => {
