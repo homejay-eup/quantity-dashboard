@@ -140,6 +140,18 @@
   table.rpt tr.total td { background: #D0E4FF !important; font-weight: 600; }
   table.rpt .zero { color: #ccc; }
   .rpt-placeholder { padding: 40px; text-align: center; color: #aaa; font-size: 0.9rem; background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+
+  /* 摺疊 */
+  .rpt-title { cursor: pointer; user-select: none; }
+  .rpt-block.collapsed .rpt-wrap { display: none; }
+  .toggle-arrow { font-size: 0.75em; margin-right: 6px; opacity: 0.85; }
+
+  /* 日期選擇器 */
+  .report-controls input[type="date"] {
+    padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px;
+    font-size: 0.85rem; background: #fff; color: #333;
+  }
+  .date-sep { color: #888; font-size: 0.9rem; padding: 0 4px; }
 </style>
 </head>
 <body>
@@ -213,23 +225,12 @@
   <div id="tab-monthly" style="display:none">
     <div class="report-section">
       <div class="report-controls">
-        <label>年份
-          <select id="rpt-m-year" onchange="renderMonthlyReport()">
-            <option value="">選擇年份</option>
-          </select>
-        </label>
-        <label>月份
-          <select id="rpt-m-month" onchange="renderMonthlyReport()">
-            <option value="">選擇月份</option>
-            <option value="1">1 月</option><option value="2">2 月</option><option value="3">3 月</option>
-            <option value="4">4 月</option><option value="5">5 月</option><option value="6">6 月</option>
-            <option value="7">7 月</option><option value="8">8 月</option><option value="9">9 月</option>
-            <option value="10">10 月</option><option value="11">11 月</option><option value="12">12 月</option>
-          </select>
-        </label>
+        <label>開始日期<input type="date" id="rpt-m-start" onchange="renderMonthlyReport()"></label>
+        <span class="date-sep">～</span>
+        <label>結束日期<input type="date" id="rpt-m-end" onchange="renderMonthlyReport()"></label>
         <span class="rpt-date" id="rpt-m-today"></span>
       </div>
-      <div id="rpt-m-body"><div class="rpt-placeholder">請選擇年份與月份</div></div>
+      <div id="rpt-m-body"><div class="rpt-placeholder">請選擇開始與結束日期</div></div>
     </div>
   </div>
 
@@ -237,30 +238,12 @@
   <div id="tab-weekly" style="display:none">
     <div class="report-section">
       <div class="report-controls">
-        <label>年份
-          <select id="rpt-w-year" onchange="renderWeeklyReport()">
-            <option value="">選擇年份</option>
-          </select>
-        </label>
-        <label>月份
-          <select id="rpt-w-month" onchange="renderWeeklyReport()">
-            <option value="">選擇月份</option>
-            <option value="1">1 月</option><option value="2">2 月</option><option value="3">3 月</option>
-            <option value="4">4 月</option><option value="5">5 月</option><option value="6">6 月</option>
-            <option value="7">7 月</option><option value="8">8 月</option><option value="9">9 月</option>
-            <option value="10">10 月</option><option value="11">11 月</option><option value="12">12 月</option>
-          </select>
-        </label>
-        <label>週別
-          <select id="rpt-w-week" onchange="renderWeeklyReport()">
-            <option value="">選擇週別</option>
-            <option value="1">第 1 週</option><option value="2">第 2 週</option>
-            <option value="3">第 3 週</option><option value="4">第 4 週</option><option value="5">第 5 週</option>
-          </select>
-        </label>
+        <label>開始日期<input type="date" id="rpt-w-start" onchange="renderWeeklyReport()"></label>
+        <span class="date-sep">～</span>
+        <label>結束日期<input type="date" id="rpt-w-end" onchange="renderWeeklyReport()"></label>
         <span class="rpt-date" id="rpt-w-today"></span>
       </div>
-      <div id="rpt-w-body"><div class="rpt-placeholder">請選擇年份、月份與週別</div></div>
+      <div id="rpt-w-body"><div class="rpt-placeholder">請選擇開始與結束日期</div></div>
     </div>
   </div>
 </div>
@@ -334,7 +317,6 @@ async function loadData() {
       remark:      String(r['備註'] || ''),
     })).filter(r => r.date);
     populateFilters();
-    populateReportYears();
     render();
     const now = new Date();
     const dateStr = now.toLocaleDateString('zh-TW', {year:'numeric', month:'2-digit', day:'2-digit'});
@@ -350,19 +332,26 @@ async function loadData() {
   }
 }
 
-function populateReportYears() {
-  const years = [...new Set(allData.map(r => r.year).filter(Boolean))].sort((a,b) => b - a);
-  ['rpt-m-year','rpt-w-year'].forEach(id => {
-    const sel = document.getElementById(id);
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">選擇年份</option>';
-    years.forEach(y => {
-      const opt = document.createElement('option');
-      opt.value = y; opt.textContent = y + ' 年';
-      sel.appendChild(opt);
-    });
-    if (years.includes(cur)) sel.value = cur;
-  });
+// 日期字串工具（避免時區問題，一律用中午時間）
+function addDays(dateStr, n) {
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toISOString().substring(0, 10);
+}
+function dateLabel(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  return (d.getMonth() + 1) + '/' + d.getDate();
+}
+function dayOfWeek(dateStr) {
+  return new Date(dateStr + 'T12:00:00').getDay(); // 0=日 1=一 ... 6=六
+}
+
+// 摺疊切換
+function toggleBlock(el) {
+  const block = el.closest('.rpt-block');
+  block.classList.toggle('collapsed');
+  const arrow = el.querySelector('.toggle-arrow');
+  if (arrow) arrow.textContent = block.classList.contains('collapsed') ? '▶' : '▼';
 }
 
 // ── 儀表板篩選 ──
@@ -457,23 +446,22 @@ function esc(s) {
 
 // ── 月報 ──
 function renderMonthlyReport() {
-  const year  = document.getElementById('rpt-m-year').value;
-  const month = document.getElementById('rpt-m-month').value;
+  const start = document.getElementById('rpt-m-start').value;
+  const end   = document.getElementById('rpt-m-end').value;
   const body  = document.getElementById('rpt-m-body');
-  if (!year || !month) { body.innerHTML = '<div class="rpt-placeholder">請選擇年份與月份</div>'; return; }
-  const data = allData.filter(r => r.year === year && r.month === month);
-  body.innerHTML = buildBlock12(data) + buildBlock3(data) + buildBlock4Monthly(data, Number(year), Number(month));
+  if (!start || !end || start > end) { body.innerHTML = '<div class="rpt-placeholder">請選擇開始與結束日期</div>'; return; }
+  const data = allData.filter(r => r.date >= start && r.date <= end);
+  body.innerHTML = buildBlock12(data) + buildBlock3(data) + buildBlock4Monthly(data, start, end);
 }
 
 // ── 周報 ──
 function renderWeeklyReport() {
-  const year  = document.getElementById('rpt-w-year').value;
-  const month = document.getElementById('rpt-w-month').value;
-  const week  = document.getElementById('rpt-w-week').value;
+  const start = document.getElementById('rpt-w-start').value;
+  const end   = document.getElementById('rpt-w-end').value;
   const body  = document.getElementById('rpt-w-body');
-  if (!year || !month || !week) { body.innerHTML = '<div class="rpt-placeholder">請選擇年份、月份與週別</div>'; return; }
-  const data = allData.filter(r => r.year === year && r.month === month && r.week === Number(week));
-  body.innerHTML = buildBlock12(data) + buildBlock3(data) + buildBlock4Weekly(data, Number(year), Number(month), Number(week));
+  if (!start || !end || start > end) { body.innerHTML = '<div class="rpt-placeholder">請選擇開始與結束日期</div>'; return; }
+  const data = allData.filter(r => r.date >= start && r.date <= end);
+  body.innerHTML = buildBlock12(data) + buildBlock3(data) + buildBlock4Weekly(data, start, end);
 }
 
 // ① ② 並排
@@ -491,7 +479,7 @@ function buildBlock1(data) {
     `<tr><td>${esc(k)}</td><td class="r">${v.toLocaleString()}</td></tr>`
   ).join('') + `<tr class="total"><td>合計</td><td class="r">${total.toLocaleString()}</td></tr>`;
   return `<div class="rpt-block">
-    <div class="rpt-title">① 作業類型彙總</div>
+    <div class="rpt-title" onclick="toggleBlock(this)"><span class="toggle-arrow">▼</span>① 作業類型彙總</div>
     <div class="rpt-wrap"><table class="rpt">
       <thead><tr><th>作業類型</th><th class="r">數量</th></tr></thead>
       <tbody>${rows.length ? body : noDataRow(2)}</tbody>
@@ -513,7 +501,7 @@ function buildBlock2(data) {
     `<tr><td>${esc(k)}</td><td class="r">${v.qty.toLocaleString()}</td><td class="r">${v.cnt.toLocaleString()}</td></tr>`
   ).join('') + `<tr class="total"><td>合計</td><td class="r">${tQty.toLocaleString()}</td><td class="r">${tCnt.toLocaleString()}</td></tr>`;
   return `<div class="rpt-block">
-    <div class="rpt-title">② 品項類型彙總</div>
+    <div class="rpt-title" onclick="toggleBlock(this)"><span class="toggle-arrow">▼</span>② 品項類型彙總</div>
     <div class="rpt-wrap"><table class="rpt">
       <thead><tr><th>品項類型</th><th class="r">數量</th><th class="r">筆數</th></tr></thead>
       <tbody>${rows.length ? body : noDataRow(3)}</tbody>
@@ -544,77 +532,90 @@ function buildBlock3(data) {
   }).join('');
   const totCells = WTYPES.map(wt => `<td class="r">${wTot[wt]===0?'—':wTot[wt].toLocaleString()}</td>`).join('');
   return `<div class="rpt-block">
-    <div class="rpt-title">③ 各人員作業量（9人 × 11作業類型）</div>
+    <div class="rpt-title" onclick="toggleBlock(this)"><span class="toggle-arrow">▼</span>③ 各人員作業量（9人 × 11作業類型）</div>
     <div class="rpt-wrap"><table class="rpt">
       <thead><tr><th>人員</th>${thCols}<th class="r">合計</th></tr></thead>
       <tbody>${dataRows}<tr class="total"><td>合計</td>${totCells}<td class="r">${grand.toLocaleString()}</td></tr></tbody>
     </table></div></div>`;
 }
 
-// ④ 月報：週別細項
-function buildBlock4Monthly(data, year, month) {
-  const firstDayOfWeek = new Date(year, month - 1, 1).getDay();
-  const firstMondayDate = 1 + (1 - firstDayOfWeek + 7) % 7;
+// 計算日期範圍內的 Mon-Fri 工作週清單
+function getWorkWeeksInRange(startDate, endDate) {
+  const weeks = [];
+  // 找第一個週一（>= startDate）
+  let mon = startDate;
+  const dow = dayOfWeek(mon);
+  if (dow !== 1) mon = addDays(mon, dow === 0 ? 1 : 8 - dow);
+  let n = 1;
+  while (mon <= endDate) {
+    const fri = addDays(mon, 4);
+    const wkEnd = fri < endDate ? fri : endDate;
+    weeks.push({ start: mon, end: wkEnd, label: `第${n}週<br><span style="font-weight:normal;font-size:0.85em">${dateLabel(mon)}~${dateLabel(wkEnd)}</span>` });
+    mon = addDays(mon, 7);
+    n++;
+  }
+  return weeks;
+}
+
+// ④ 月報：週別細項（依日期範圍動態計算工作週）
+function buildBlock4Monthly(data, startDate, endDate) {
+  const weeks = getWorkWeeksInRange(startDate, endDate);
   const map = {};
   data.forEach(r => {
     const key = `${r.productCode}\0${r.productName}\0${r.workType}`;
-    if (!map[key]) map[key] = {productCode:r.productCode, productName:r.productName, workType:r.workType, total:0, w:{1:0,2:0,3:0,4:0,5:0}};
+    if (!map[key]) {
+      map[key] = {productCode:r.productCode, productName:r.productName, workType:r.workType, total:0, byWeek:{}};
+      weeks.forEach((_,i) => map[key].byWeek[i] = 0);
+    }
     map[key].total += r.qty;
-    if (r.week >= 1 && r.week <= 5) map[key].w[r.week] += r.qty;
+    weeks.forEach((wk, i) => { if (r.date >= wk.start && r.date <= wk.end) map[key].byWeek[i] += r.qty; });
   });
   const rows = Object.values(map).sort((a,b) => b.total-a.total);
-  const lastDay = new Date(year, month, 0).getDate();
-  const thCols = [1,2,3,4,5].map(w => {
-    const mon = firstMondayDate + (w - 1) * 7;
-    const fri = Math.min(mon + 4, lastDay);
-    const label = mon <= lastDay
-      ? `第${w}週<br><span style="font-weight:normal;font-size:0.85em">${month}/${mon}~${month}/${fri}</span>`
-      : `第${w}週`;
-    return `<th class="r">${label}</th>`;
-  }).join('');
+  const thCols = weeks.map(wk => `<th class="r">${wk.label}</th>`).join('');
+  const colCount = 4 + weeks.length;
   const body = rows.map(row => {
-    const wCells = [1,2,3,4,5].map(w => {
-      const v = row.w[w];
+    const wCells = weeks.map((_,i) => {
+      const v = row.byWeek[i];
       return `<td class="r${v===0?' zero':''}">${v===0?'—':v.toLocaleString()}</td>`;
     }).join('');
     return `<tr><td>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td><td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>${wCells}</tr>`;
-  }).join('') || noDataRow(9);
+  }).join('') || noDataRow(colCount);
   return `<div class="rpt-block">
-    <div class="rpt-title">④ 品號品名彙總（含各週細項，依數量降冪）</div>
+    <div class="rpt-title" onclick="toggleBlock(this)"><span class="toggle-arrow">▼</span>④ 品號品名彙總（含各週細項，依數量降冪）</div>
     <div class="rpt-wrap"><table class="rpt">
       <thead><tr><th>品號</th><th>品名</th><th>作業類型</th><th class="r">數量合計</th>${thCols}</tr></thead>
       <tbody>${body}</tbody>
     </table></div></div>`;
 }
 
-// ④ 周報：日別細項
-function buildBlock4Weekly(data, year, month, week) {
-  const firstDayOfWeek = new Date(year, month - 1, 1).getDay();
-  const firstMondayDate = 1 + (1 - firstDayOfWeek + 7) % 7;
-  const startDay = firstMondayDate + (week - 1) * 7;
-  const lastDay  = new Date(year, month, 0).getDate();
-  const days = [];
-  for (let d = startDay; d <= Math.min(startDay + 4, lastDay); d++) days.push(d);
+// ④ 周報：日別細項（依日期範圍，每天一欄）
+function buildBlock4Weekly(data, startDate, endDate) {
+  const dates = [];
+  let cur = startDate;
+  while (cur <= endDate) { dates.push(cur); cur = addDays(cur, 1); }
 
   const map = {};
   data.forEach(r => {
     const key = `${r.productCode}\0${r.productName}\0${r.workType}`;
-    if (!map[key]) { map[key] = {productCode:r.productCode, productName:r.productName, workType:r.workType, total:0, byDay:{}}; days.forEach(d => map[key].byDay[d] = 0); }
+    if (!map[key]) {
+      map[key] = {productCode:r.productCode, productName:r.productName, workType:r.workType, total:0, byDate:{}};
+      dates.forEach(d => map[key].byDate[d] = 0);
+    }
     map[key].total += r.qty;
-    const day = parseInt(r.date.substring(8, 10));
-    if (map[key].byDay[day] !== undefined) map[key].byDay[day] += r.qty;
+    if (map[key].byDate[r.date] !== undefined) map[key].byDate[r.date] += r.qty;
   });
   const rows = Object.values(map).sort((a,b) => b.total-a.total);
-  const thCols = days.map(d => `<th class="r">${month}/${d}</th>`).join('');
+  const thCols = dates.map(d => `<th class="r">${dateLabel(d)}</th>`).join('');
+  const colCount = 4 + dates.length;
   const body = rows.map(row => {
-    const dCells = days.map(d => {
-      const v = row.byDay[d];
+    const dCells = dates.map(d => {
+      const v = row.byDate[d];
       return `<td class="r${v===0?' zero':''}">${v===0?'—':v.toLocaleString()}</td>`;
     }).join('');
     return `<tr><td>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td><td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>${dCells}</tr>`;
-  }).join('') || noDataRow(4 + days.length);
+  }).join('') || noDataRow(colCount);
   return `<div class="rpt-block">
-    <div class="rpt-title">④ 品號品名彙總（含各日細項，依數量降冪）</div>
+    <div class="rpt-title" onclick="toggleBlock(this)"><span class="toggle-arrow">▼</span>④ 品號品名彙總（含各日細項，依數量降冪）</div>
     <div class="rpt-wrap"><table class="rpt">
       <thead><tr><th>品號</th><th>品名</th><th>作業類型</th><th class="r">數量合計</th>${thCols}</tr></thead>
       <tbody>${body}</tbody>
