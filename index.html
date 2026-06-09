@@ -204,15 +204,7 @@
 <div id="login-screen">
   <h1>數量統計表 儀表板</h1>
   <p>請使用公司 Google 帳號（@eup.com.tw）登入</p>
-  <div id="g_id_onload"
-    data-client_id="49182385706-hk1m4hqvlb224df35bbast88kk1baphq.apps.googleusercontent.com"
-    data-callback="handleCredentialResponse"
-    data-auto_prompt="false">
-  </div>
-  <div class="g_id_signin"
-    data-type="standard" data-size="large" data-theme="outline"
-    data-text="sign_in_with" data-shape="rectangular" data-locale="zh-TW">
-  </div>
+  <div id="g_id_signin"></div>
   <p id="login-error">❌ 僅限 @eup.com.tw 帳號存取</p>
 </div>
 
@@ -941,6 +933,21 @@ function drawLine(id, {labels, values}) {
     options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision:0 } } } }
   });
 }
+
+// ── GSI 手動初始化（避開 defer 時序問題）──────────────────────
+window.addEventListener('load', function () {
+  if (!window.google || !window.google.accounts) return;
+  google.accounts.id.initialize({
+    client_id: '49182385706-hk1m4hqvlb224df35bbast88kk1baphq.apps.googleusercontent.com',
+    callback: handleCredentialResponse,
+    auto_select: false
+  });
+  google.accounts.id.renderButton(
+    document.getElementById('g_id_signin'),
+    { type: 'standard', size: 'large', theme: 'outline',
+      text: 'sign_in_with', shape: 'rectangular', locale: 'zh-TW' }
+  );
+});
 </script>
 </body>
 </html>
