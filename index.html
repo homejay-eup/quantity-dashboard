@@ -526,6 +526,17 @@ function initProductList() {
       if(valid.length>0&&valid.length<allProductList.length) filterProducts=new Set(valid);
     }
   }catch(e){}
+  const lsMap={person:'eup-qty-persons',wtype:'eup-qty-wtypes',itype:'eup-qty-itypes'};
+  ['person','wtype','itype'].forEach(function(type){
+    try{
+      const saved=JSON.parse(localStorage.getItem(lsMap[type]));
+      const list=getItemList(type);
+      if(Array.isArray(saved)&&saved.length>0){
+        const valid=saved.filter(v=>list.includes(v));
+        if(valid.length>0&&valid.length<list.length) setFilterState(type,new Set(valid));
+      }
+    }catch(e){}
+  });
   ['m','w'].forEach(injectFilterControls);
   updateFilterBadges();
 }
@@ -601,16 +612,24 @@ function renderListPanel(prefix, type) {
   if(list) list.innerHTML=items.map(function(item){
     return '<label class="panel-item"><input type="checkbox" class="'+prefix+'-'+type+'-cb" value="'+escAttr(item)+'"'
       +((allSel||(state&&state.has(item)))?' checked':'')
-      +' onchange="onItemChange(\''+prefix+'\',\''+type+'\')">'
+      +' onchange="onItemChange(\''+prefix+'\',\''+type+'\',this)">'
       +esc(item)+'</label>';
   }).join('');
 }
 
-function onItemChange(prefix, type) {
+function onItemChange(prefix, type, clickedEl) {
   const items=getItemList(type);
+  const prevState=getFilterState(type);
   const cbs=[...document.querySelectorAll('.'+prefix+'-'+type+'-cb')];
-  const checked=cbs.filter(cb=>cb.checked).map(cb=>cb.value);
   const allCb=document.getElementById(prefix+'-'+type+'-all');
+  // 全選狀態下點單一項目 → 只選那一項（exclusive select）
+  if(prevState===null&&clickedEl&&!clickedEl.checked){
+    cbs.forEach(cb=>cb.checked=(cb===clickedEl));
+    setFilterState(type,new Set([clickedEl.value]));
+    if(allCb){allCb.checked=false;allCb.indeterminate=true;}
+    saveListFilter(type); updateFilterBadges(); rerender(); return;
+  }
+  const checked=cbs.filter(cb=>cb.checked).map(cb=>cb.value);
   if(checked.length===0){
     cbs.forEach(cb=>cb.checked=true); setFilterState(type,null);
     if(allCb){allCb.checked=true;allCb.indeterminate=false;}
@@ -621,14 +640,14 @@ function onItemChange(prefix, type) {
     setFilterState(type,new Set(checked));
     if(allCb){allCb.checked=false;allCb.indeterminate=true;}
   }
-  updateFilterBadges(); rerender();
+  saveListFilter(type); updateFilterBadges(); rerender();
 }
 
 function onAllChange(prefix, type, el) {
   document.querySelectorAll('.'+prefix+'-'+type+'-cb').forEach(cb=>cb.checked=true);
   el.checked=true; el.indeterminate=false;
   setFilterState(type,null);
-  updateFilterBadges(); rerender();
+  saveListFilter(type); updateFilterBadges(); rerender();
 }
 
 function renderProductPanel(prefix, query) {
@@ -683,6 +702,13 @@ function resetProductFilter() {
 
 function saveProductFilter() {
   try{localStorage.setItem(LS_KEY,JSON.stringify(filterProducts?[...filterProducts]:null));}catch(e){}
+}
+
+function saveListFilter(type) {
+  const lsMap={person:'eup-qty-persons',wtype:'eup-qty-wtypes',itype:'eup-qty-itypes'};
+  const key=lsMap[type]; if(!key) return;
+  const state=getFilterState(type);
+  try{localStorage.setItem(key,JSON.stringify(state?[...state]:null));}catch(e){}
 }
 
 function updateFilterBadges() {
