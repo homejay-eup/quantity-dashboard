@@ -6,6 +6,7 @@
 <title>數量統計表 — 儀表板</title>
 <script src="https://accounts.google.com/gsi/client" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #333; }
@@ -197,6 +198,11 @@
   .panel-item input[type="checkbox"] { cursor: pointer; flex-shrink: 0; }
   .rpt-panel-list { max-height: 220px; overflow-y: auto; }
   .p-code { color: #999; font-size: 0.78rem; min-width: 62px; flex-shrink: 0; }
+  .export-btn {
+    float: right; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.6);
+    color: #fff; padding: 2px 10px; border-radius: 4px; cursor: pointer; font-size: 0.78rem; margin-top: 1px;
+  }
+  .export-btn:hover { background: rgba(255,255,255,0.38); }
 </style>
 </head>
 <body>
@@ -297,6 +303,7 @@ const COLORS_6  = ['#4285f4','#34a853','#fbbc04','#ea4335','#9c27b0','#ff6d00'];
 
 let allData = [];
 let charts = {};
+let _b4Cache = null; // { headers, rows, start, end, sheetName }
 
 // ── 登入 ──
 function handleCredentialResponse(response) {
@@ -837,7 +844,9 @@ function getWorkWeeksInRange(startDate, endDate) {
   while (mon <= endDate) {
     const fri = addDays(mon, 4);
     const wkEnd = fri < endDate ? fri : endDate;
-    weeks.push({ start: mon, end: wkEnd, label: `第${n}週<br><span style="font-weight:normal;font-size:0.85em">${dateLabel(mon)}~${dateLabel(wkEnd)}</span>` });
+    weeks.push({ start: mon, end: wkEnd,
+      label: `第${n}週<br><span style="font-weight:normal;font-size:0.85em">${dateLabel(mon)}~${dateLabel(wkEnd)}</span>`,
+      textLabel: `第${n}週 ${dateLabel(mon)}~${dateLabel(wkEnd)}` });
     mon = addDays(mon, 7);
     n++;
   }
@@ -858,6 +867,14 @@ function buildBlock4Monthly(data, startDate, endDate) {
     weeks.forEach((wk, i) => { if (r.date >= wk.start && r.date <= wk.end) map[key].byWeek[i] += r.qty; });
   });
   const rows = Object.values(map).sort((a,b) => b.total-a.total);
+  // 快取供匯出用
+  _b4Cache = {
+    sheetName: '品號品名彙總',
+    start: startDate, end: endDate,
+    headers: ['品號','品名','作業類型','數量合計', ...weeks.map(wk=>wk.textLabel)],
+    rows: rows.map(row => [row.productCode, row.productName, row.workType, row.total,
+      ...weeks.map((_,i) => row.byWeek[i] || 0)])
+  };
   const thCols = weeks.map(wk => `<th class="r">${wk.label}</th>`).join('');
   const colCount = 4 + weeks.length;
   const body = rows.map(row => {
@@ -868,7 +885,7 @@ function buildBlock4Monthly(data, startDate, endDate) {
     return `<tr><td>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td><td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>${wCells}</tr>`;
   }).join('') || noDataRow(colCount);
   return `<div class="rpt-block">
-    <div class="rpt-title" onclick="toggleBlock(this)"><span class="toggle-arrow">▼</span>④ 品號品名彙總（含各週細項，依數量降冪）</div>
+    <div class="rpt-title" onclick="toggleBlock(this)"><span class="toggle-arrow">▼</span>④ 品號品名彙總（含各週細項，依數量降冪）<button class="export-btn" onclick="event.stopPropagation();exportBlock4()">⬇ 下載 .xlsx</button></div>
     <div class="rpt-wrap"><table class="rpt">
       <thead><tr><th>品號</th><th>品名</th><th>作業類型</th><th class="r">數量合計</th>${thCols}</tr></thead>
       <tbody>${body}</tbody>
@@ -892,6 +909,14 @@ function buildBlock4Weekly(data, startDate, endDate) {
     if (map[key].byDate[r.date] !== undefined) map[key].byDate[r.date] += r.qty;
   });
   const rows = Object.values(map).sort((a,b) => b.total-a.total);
+  // 快取供匯出用
+  _b4Cache = {
+    sheetName: '品號品名彙總',
+    start: startDate, end: endDate,
+    headers: ['品號','品名','作業類型','數量合計', ...dates.map(d=>dateLabel(d))],
+    rows: rows.map(row => [row.productCode, row.productName, row.workType, row.total,
+      ...dates.map(d => row.byDate[d] || 0)])
+  };
   const thCols = dates.map(d => `<th class="r">${dateLabel(d)}</th>`).join('');
   const colCount = 4 + dates.length;
   const body = rows.map(row => {
@@ -902,7 +927,7 @@ function buildBlock4Weekly(data, startDate, endDate) {
     return `<tr><td>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td><td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>${dCells}</tr>`;
   }).join('') || noDataRow(colCount);
   return `<div class="rpt-block">
-    <div class="rpt-title" onclick="toggleBlock(this)"><span class="toggle-arrow">▼</span>④ 品號品名彙總（含各日細項，依數量降冪）</div>
+    <div class="rpt-title" onclick="toggleBlock(this)"><span class="toggle-arrow">▼</span>④ 品號品名彙總（含各日細項，依數量降冪）<button class="export-btn" onclick="event.stopPropagation();exportBlock4()">⬇ 下載 .xlsx</button></div>
     <div class="rpt-wrap"><table class="rpt">
       <thead><tr><th>品號</th><th>品名</th><th>作業類型</th><th class="r">數量合計</th>${thCols}</tr></thead>
       <tbody>${body}</tbody>
@@ -911,6 +936,30 @@ function buildBlock4Weekly(data, startDate, endDate) {
 
 function noDataRow(cols) {
   return `<tr><td colspan="${cols}" class="no-data">無資料</td></tr>`;
+}
+
+function exportBlock4() {
+  if (!_b4Cache) { alert('請先選擇日期範圍產生報表'); return; }
+  if (typeof XLSX === 'undefined') { alert('xlsx 套件尚未載入，請稍後再試'); return; }
+  const { sheetName, start, end, headers, rows } = _b4Cache;
+  const wsData = [headers, ...rows];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  // 欄寬設定
+  ws['!cols'] = [
+    {wch:12}, {wch:32}, {wch:12}, {wch:10},
+    ...Array(headers.length - 4).fill({wch:9})
+  ];
+  // 數字格式（第4欄起，數量欄）
+  const numFmt = '0';
+  for (let r = 1; r < wsData.length; r++) {
+    for (let c = 3; c < headers.length; c++) {
+      const addr = XLSX.utils.encode_cell({r, c});
+      if (ws[addr] && typeof ws[addr].v === 'number') ws[addr].t = 'n', ws[addr].z = numFmt;
+    }
+  }
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  XLSX.writeFile(wb, `品號品名彙總_${start}_${end}.xlsx`);
 }
 
 // ── 圖表 ──
