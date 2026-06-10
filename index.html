@@ -546,12 +546,8 @@ function toggleBlock(el) {
 
 // ── 儀表板篩選 ──
 function populateFilters() {
-  const months  = [...new Set(allData.map(r => r.month).filter(Boolean))].sort((a,b) => Number(a)-Number(b));
-  const persons = [...new Set(allData.map(r => r.person).filter(Boolean))].sort();
-  const wtypes  = [...new Set(allData.map(r => r.workType).filter(Boolean))].sort();
-  fillSelect('filter-month',    months,  m => `${m} 月`);
-  fillSelect('filter-person',   persons);
-  fillSelect('filter-worktype', wtypes);
+  const months = [...new Set(allData.map(r => r.month).filter(Boolean))].sort((a,b) => Number(a)-Number(b));
+  fillSelect('filter-month', months, m => `${m} 月`);
   populateWeeks(allData);
 }
 
@@ -735,7 +731,8 @@ function getFilteredData(start, end) {
 }
 
 function rerender() {
-  if(activeReportTab==='report') renderReport();
+  if (activeReportTab === 'report') renderReport();
+  else render();
 }
 
 function toggleFP(prefix, type) {
