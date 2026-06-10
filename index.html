@@ -95,6 +95,9 @@
     border-radius: 10px; font-size: 0.8rem; font-weight: normal;
   }
   .detail-wrap { overflow-x: auto; max-height: 420px; overflow-y: auto; }
+  .detail-section.collapsed .detail-wrap { display: none; }
+  .detail-header { cursor: pointer; user-select: none; }
+  .toggle-arrow-d { font-size: 0.75em; margin-right: 6px; opacity: 0.85; }
   table.detail { border-collapse: collapse; width: 100%; font-size: 0.82rem; }
   table.detail thead th {
     background: #e8f0fe; color: #1a56c4; padding: 9px 12px; text-align: left;
@@ -198,6 +201,8 @@
   .panel-item input[type="checkbox"] { cursor: pointer; flex-shrink: 0; }
   .rpt-panel-list { max-height: 220px; overflow-y: auto; }
   .p-code { color: #999; font-size: 0.78rem; min-width: 62px; flex-shrink: 0; }
+  table.rpt th.sort { cursor: pointer; user-select: none; }
+  table.rpt th.sort:hover { background: #b8d4ff; }
   .export-btn {
     float: right; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.6);
     color: #fff; padding: 2px 10px; border-radius: 4px; cursor: pointer; font-size: 0.78rem; margin-top: 1px;
@@ -234,8 +239,7 @@
     <div class="filter-bar">
       <label>月份<select id="filter-month"><option value="">全部</option></select></label>
       <label>週別<select id="filter-week"><option value="">全部</option></select></label>
-      <label>人員<select id="filter-person"><option value="">全部</option></select></label>
-      <label>作業類型<select id="filter-worktype"><option value="">全部</option></select></label>
+      <div id="d-filter-slot" style="display:contents"></div>
       <button id="btn-refresh" onclick="loadData()">重新整理</button>
       <span id="loading">載入中…</span>
     </div>
@@ -253,7 +257,7 @@
       <div class="chart-card"><h3>品項類型分布</h3><canvas id="chart-itemtype"></canvas></div>
     </div>
     <div class="detail-section">
-      <div class="detail-header">明細記錄<span id="detail-count">0 筆</span></div>
+      <div class="detail-header" onclick="toggleDetail()"><span class="toggle-arrow-d">▼</span>明細記錄<span id="detail-count">0 筆</span></div>
       <div class="detail-wrap">
         <table class="detail">
           <thead><tr><th>日期</th><th>人員</th><th>作業類型</th><th>品號</th><th>品名</th><th style="text-align:right">數量</th><th>備註</th></tr></thead>
@@ -275,7 +279,6 @@
           <option value="day">日別</option>
         </select></label>
         <div id="r-filter-slot" style="display:contents"></div>
-        <span class="rpt-date" id="rpt-r-today"></span>
       </div>
       <div id="rpt-r-body"><div class="rpt-placeholder">請選擇開始與結束日期</div></div>
     </div>
@@ -293,6 +296,7 @@ const COLORS_6  = ['#4285f4','#34a853','#fbbc04','#ea4335','#9c27b0','#ff6d00'];
 let allData = [];
 let charts = {};
 let _b4Cache = null; // { headers, rows, start, end, sheetName }
+let _b4Sort  = { col: 3, asc: false }; // default: 數量合計 desc
 
 // ── 登入 ──
 function handleCredentialResponse(response) {
@@ -358,7 +362,6 @@ async function loadData() {
     render();
     const now = new Date();
     const dateStr = now.toLocaleDateString('zh-TW', {year:'numeric', month:'2-digit', day:'2-digit'});
-    document.getElementById('rpt-r-today').textContent = '製表日期：' + dateStr;
     document.getElementById('kpi-updated').textContent =
       now.toLocaleTimeString('zh-TW', {hour:'2-digit', minute:'2-digit'});
   } catch(e) {
@@ -424,14 +427,15 @@ function fillSelect(id, values, labelFn) {
 function getFiltered() {
   const m  = document.getElementById('filter-month').value;
   const wk = document.getElementById('filter-week').value;
-  const p  = document.getElementById('filter-person').value;
-  const w  = document.getElementById('filter-worktype').value;
-  return allData.filter(r =>
-    (!m  || r.month    === m) &&
-    (!wk || r.week     === Number(wk)) &&
-    (!p  || r.person   === p) &&
-    (!w  || r.workType === w)
+  let d = allData.filter(r =>
+    (!m  || r.month === m) &&
+    (!wk || r.week  === Number(wk))
   );
+  if (filterPersons   !== null) d = d.filter(r => filterPersons.has(r.person));
+  if (filterWorkTypes !== null) d = d.filter(r => filterWorkTypes.has(r.workType));
+  if (filterItemTypes !== null) d = d.filter(r => filterItemTypes.has(r.itemType));
+  if (filterProducts  !== null) d = d.filter(r => filterProducts.has(productKey(r)));
+  return d;
 }
 
 // 點擊面板外部時關閉
@@ -445,8 +449,7 @@ document.getElementById('filter-month').addEventListener('change', () => {
   document.getElementById('filter-week').value = '';
   render();
 });
-['filter-week','filter-person','filter-worktype'].forEach(id =>
-  document.getElementById(id).addEventListener('change', render));
+document.getElementById('filter-week').addEventListener('change', render);
 
 // ── 儀表板渲染 ──
 function render() {
@@ -532,7 +535,7 @@ function initProductList() {
       }
     }catch(e){}
   });
-  ['r'].forEach(injectFilterControls);
+  ['r','d'].forEach(injectFilterControls);
   updateFilterBadges();
 }
 
@@ -706,10 +709,12 @@ function saveListFilter(type) {
 }
 
 function updateFilterBadges() {
-  setBadge('r-person-badge',  filterPersons,   PEOPLE.length,         '人');
-  setBadge('r-wtype-badge',   filterWorkTypes, allWorkTypeList.length, '類');
-  setBadge('r-itype-badge',   filterItemTypes, allItemTypeList.length, '類');
-  setProductBadge('r-product-badge');
+  ['r','d'].forEach(t => {
+    setBadge(t+'-person-badge',  filterPersons,   PEOPLE.length,         '人');
+    setBadge(t+'-wtype-badge',   filterWorkTypes, allWorkTypeList.length, '類');
+    setBadge(t+'-itype-badge',   filterItemTypes, allItemTypeList.length, '類');
+    setProductBadge(t+'-product-badge');
+  });
 }
 function setBadge(id,state,total,unit){
   const el=document.getElementById(id); if(!el) return;
@@ -845,7 +850,12 @@ function buildBlock4Monthly(data, startDate, endDate) {
     map[key].total += r.qty;
     weeks.forEach((wk, i) => { if (r.date >= wk.start && r.date <= wk.end) map[key].byWeek[i] += r.qty; });
   });
-  const rows = Object.values(map).sort((a,b) => b.total-a.total);
+  const sc=_b4Sort.col, sa=_b4Sort.asc;
+  const rows = Object.values(map).sort((a,b)=>{
+    const va=sc===0?a.productCode:sc===1?a.productName:sc===2?a.workType:sc===3?a.total:(a.byWeek[sc-4]||0);
+    const vb=sc===0?b.productCode:sc===1?b.productName:sc===2?b.workType:sc===3?b.total:(b.byWeek[sc-4]||0);
+    return typeof va==='string'?(sa?va.localeCompare(vb):vb.localeCompare(va)):(sa?va-vb:vb-va);
+  });
   // 快取供匯出用
   _b4Cache = {
     sheetName: '品號品名彙總',
@@ -854,7 +864,8 @@ function buildBlock4Monthly(data, startDate, endDate) {
     rows: rows.map(row => [row.productCode, row.productName, row.workType, row.total,
       ...weeks.map((_,i) => row.byWeek[i] || 0)])
   };
-  const thCols = weeks.map(wk => `<th class="r">${wk.label}</th>`).join('');
+  const si=c=>'<span style="font-size:.78em;opacity:'+(sc===c?.9:.3)+'">'+( sc!==c?'⇅':sa?'↑':'↓')+'</span>';
+  const thCols = weeks.map((wk,i) => `<th class="r sort" onclick="sortBlock4(${i+4})">${wk.label} ${si(i+4)}</th>`).join('');
   const colCount = 4 + weeks.length;
   const body = rows.map(row => {
     const wCells = weeks.map((_,i) => {
@@ -864,9 +875,9 @@ function buildBlock4Monthly(data, startDate, endDate) {
     return `<tr><td>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td><td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>${wCells}</tr>`;
   }).join('') || noDataRow(colCount);
   return `<div class="rpt-block">
-    <div class="rpt-title" onclick="toggleBlock(this)"><span class="toggle-arrow">▼</span>④ 品號品名彙總（含各週細項，依數量降冪）<button class="export-btn" onclick="event.stopPropagation();exportBlock4()">⬇ 下載 .xlsx</button></div>
+    <div class="rpt-title" onclick="toggleBlock(this)"><span class="toggle-arrow">▼</span>④ 品號品名彙總（含各週細項）<button class="export-btn" onclick="event.stopPropagation();exportBlock4()">⬇ 下載 .xlsx</button></div>
     <div class="rpt-wrap"><table class="rpt">
-      <thead><tr><th>品號</th><th>品名</th><th>作業類型</th><th class="r">數量合計</th>${thCols}</tr></thead>
+      <thead><tr><th class="sort" onclick="sortBlock4(0)">品號 ${si(0)}</th><th class="sort" onclick="sortBlock4(1)">品名 ${si(1)}</th><th class="sort" onclick="sortBlock4(2)">作業類型 ${si(2)}</th><th class="r sort" onclick="sortBlock4(3)">數量合計 ${si(3)}</th>${thCols}</tr></thead>
       <tbody>${body}</tbody>
     </table></div></div>`;
 }
@@ -887,7 +898,12 @@ function buildBlock4Weekly(data, startDate, endDate) {
     map[key].total += r.qty;
     if (map[key].byDate[r.date] !== undefined) map[key].byDate[r.date] += r.qty;
   });
-  const rows = Object.values(map).sort((a,b) => b.total-a.total);
+  const sc=_b4Sort.col, sa=_b4Sort.asc;
+  const rows = Object.values(map).sort((a,b)=>{
+    const va=sc===0?a.productCode:sc===1?a.productName:sc===2?a.workType:sc===3?a.total:(a.byDate[dates[sc-4]]||0);
+    const vb=sc===0?b.productCode:sc===1?b.productName:sc===2?b.workType:sc===3?b.total:(b.byDate[dates[sc-4]]||0);
+    return typeof va==='string'?(sa?va.localeCompare(vb):vb.localeCompare(va)):(sa?va-vb:vb-va);
+  });
   // 快取供匯出用
   _b4Cache = {
     sheetName: '品號品名彙總',
@@ -896,7 +912,8 @@ function buildBlock4Weekly(data, startDate, endDate) {
     rows: rows.map(row => [row.productCode, row.productName, row.workType, row.total,
       ...dates.map(d => row.byDate[d] || 0)])
   };
-  const thCols = dates.map(d => `<th class="r">${dateLabel(d)}</th>`).join('');
+  const si=c=>'<span style="font-size:.78em;opacity:'+(sc===c?.9:.3)+'">'+( sc!==c?'⇅':sa?'↑':'↓')+'</span>';
+  const thCols = dates.map((d,i) => `<th class="r sort" onclick="sortBlock4(${i+4})">${dateLabel(d)} ${si(i+4)}</th>`).join('');
   const colCount = 4 + dates.length;
   const body = rows.map(row => {
     const dCells = dates.map(d => {
@@ -906,15 +923,28 @@ function buildBlock4Weekly(data, startDate, endDate) {
     return `<tr><td>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td><td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>${dCells}</tr>`;
   }).join('') || noDataRow(colCount);
   return `<div class="rpt-block">
-    <div class="rpt-title" onclick="toggleBlock(this)"><span class="toggle-arrow">▼</span>④ 品號品名彙總（含各日細項，依數量降冪）<button class="export-btn" onclick="event.stopPropagation();exportBlock4()">⬇ 下載 .xlsx</button></div>
+    <div class="rpt-title" onclick="toggleBlock(this)"><span class="toggle-arrow">▼</span>④ 品號品名彙總（含各日細項）<button class="export-btn" onclick="event.stopPropagation();exportBlock4()">⬇ 下載 .xlsx</button></div>
     <div class="rpt-wrap"><table class="rpt">
-      <thead><tr><th>品號</th><th>品名</th><th>作業類型</th><th class="r">數量合計</th>${thCols}</tr></thead>
+      <thead><tr><th class="sort" onclick="sortBlock4(0)">品號 ${si(0)}</th><th class="sort" onclick="sortBlock4(1)">品名 ${si(1)}</th><th class="sort" onclick="sortBlock4(2)">作業類型 ${si(2)}</th><th class="r sort" onclick="sortBlock4(3)">數量合計 ${si(3)}</th>${thCols}</tr></thead>
       <tbody>${body}</tbody>
     </table></div></div>`;
 }
 
 function noDataRow(cols) {
   return `<tr><td colspan="${cols}" class="no-data">無資料</td></tr>`;
+}
+
+function sortBlock4(col) {
+  _b4Sort = { col, asc: _b4Sort.col === col ? !_b4Sort.asc : (col < 3) };
+  renderReport();
+}
+
+function toggleDetail() {
+  const sec = document.querySelector('.detail-section');
+  if (!sec) return;
+  sec.classList.toggle('collapsed');
+  const arrow = sec.querySelector('.toggle-arrow-d');
+  if (arrow) arrow.textContent = sec.classList.contains('collapsed') ? '▶' : '▼';
 }
 
 function exportBlock4() {
