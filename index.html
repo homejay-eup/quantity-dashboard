@@ -297,6 +297,16 @@
   .filter-bar { border-bottom-color: #e2f0ef; }
   .filter-bar select { border-color: #d1faf5; background: #f0fdfa; }
   .filter-bar select:focus { border-color: #0d9488; outline: none; }
+  .filter-bar input[type="date"] {
+    padding: 6px 10px; border: 1px solid #d1faf5; border-radius: 4px;
+    font-size: 0.85rem; background: #f0fdfa; color: #333;
+  }
+  .filter-bar input[type="date"]:focus { border-color: #0d9488; outline: none; }
+  .quick-btn {
+    padding: 5px 12px; border: 1px solid #d1faf5; border-radius: 4px;
+    background: #f0fdfa; cursor: pointer; font-size: 0.82rem; color: #555; white-space: nowrap;
+  }
+  .quick-btn:hover { border-color: #0d9488; color: #0d9488; background: #ccfbf1; }
   #btn-refresh { background: #0d9488; box-shadow: 0 2px 8px rgba(13,148,136,.3); }
   #btn-refresh:hover { background: #0b7a70; }
   #loading { color: #0d9488; }
@@ -387,8 +397,12 @@
   <!-- 儀表板 -->
   <div id="tab-dashboard">
     <div class="filter-bar">
-      <label>月份<select id="filter-month"><option value="">全部</option></select></label>
-      <label>週別<select id="filter-week"><option value="">全部</option></select></label>
+      <input type="date" id="filter-start" onchange="render()">
+      <span class="date-sep">～</span>
+      <input type="date" id="filter-end" onchange="render()">
+      <button class="quick-btn" onclick="setQuick('week')">本週</button>
+      <button class="quick-btn" onclick="setQuick('lastweek')">上週</button>
+      <button class="quick-btn" onclick="setQuick('month')">本月</button>
       <div id="d-filter-slot" style="display:contents"></div>
       <button id="btn-refresh" onclick="loadData()">重新整理</button>
       <span id="loading">載入中…</span>
@@ -546,37 +560,47 @@ function toggleBlock(el) {
 
 // ── 儀表板篩選 ──
 function populateFilters() {
-  const months = [...new Set(allData.map(r => r.month).filter(Boolean))].sort((a,b) => Number(a)-Number(b));
-  fillSelect('filter-month', months, m => `${m} 月`);
-  populateWeeks(allData);
+  // 預設帶入本月（僅首次載入時設定）
+  if (!document.getElementById('filter-start').value) {
+    const today = new Date();
+    const y = today.getFullYear(), m = today.getMonth();
+    document.getElementById('filter-start').value = new Date(y, m, 1).toISOString().substring(0, 10);
+    document.getElementById('filter-end').value   = new Date(y, m + 1, 0).toISOString().substring(0, 10);
+  }
 }
 
-function populateWeeks(data) {
-  const weeks = [...new Set(data.map(r => r.week).filter(Boolean))].sort((a,b) => a-b);
-  const cur = document.getElementById('filter-week').value;
-  fillSelect('filter-week', weeks, w => `第 ${w} 週`);
-  if (weeks.includes(Number(cur))) document.getElementById('filter-week').value = cur;
-}
-
-function fillSelect(id, values, labelFn) {
-  const sel = document.getElementById(id);
-  const cur = sel.value;
-  sel.innerHTML = '<option value="">全部</option>';
-  values.forEach(v => {
-    const opt = document.createElement('option');
-    opt.value = v; opt.textContent = labelFn ? labelFn(v) : v;
-    sel.appendChild(opt);
-  });
-  sel.value = cur;
+function setQuick(type) {
+  const today = new Date();
+  const dow = today.getDay(); // 0=日
+  let start, end;
+  if (type === 'week') {
+    const mon = new Date(today);
+    mon.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
+    const fri = new Date(mon); fri.setDate(mon.getDate() + 4);
+    start = mon.toISOString().substring(0, 10);
+    end   = fri.toISOString().substring(0, 10);
+  } else if (type === 'lastweek') {
+    const mon = new Date(today);
+    mon.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1) - 7);
+    const fri = new Date(mon); fri.setDate(mon.getDate() + 4);
+    start = mon.toISOString().substring(0, 10);
+    end   = fri.toISOString().substring(0, 10);
+  } else if (type === 'month') {
+    const y = today.getFullYear(), m = today.getMonth();
+    start = new Date(y, m, 1).toISOString().substring(0, 10);
+    end   = new Date(y, m + 1, 0).toISOString().substring(0, 10);
+  }
+  document.getElementById('filter-start').value = start;
+  document.getElementById('filter-end').value   = end;
+  render();
 }
 
 function getFiltered() {
-  const m  = document.getElementById('filter-month').value;
-  const wk = document.getElementById('filter-week').value;
-  let d = allData.filter(r =>
-    (!m  || r.month === m) &&
-    (!wk || r.week  === Number(wk))
-  );
+  const start = document.getElementById('filter-start').value;
+  const end   = document.getElementById('filter-end').value;
+  let d = allData;
+  if (start) d = d.filter(r => r.date >= start);
+  if (end)   d = d.filter(r => r.date <= end);
   if (filterPersons   !== null) d = d.filter(r => filterPersons.has(r.person));
   if (filterWorkTypes !== null) d = d.filter(r => filterWorkTypes.has(r.workType));
   if (filterItemTypes !== null) d = d.filter(r => filterItemTypes.has(r.itemType));
@@ -588,14 +612,6 @@ function getFiltered() {
 document.addEventListener('click', e => {
   if (!e.target.closest('.rpt-filter-wrap')) closeAllPanels();
 });
-
-document.getElementById('filter-month').addEventListener('change', () => {
-  const m = document.getElementById('filter-month').value;
-  populateWeeks(m ? allData.filter(r => r.month === m) : allData);
-  document.getElementById('filter-week').value = '';
-  render();
-});
-document.getElementById('filter-week').addEventListener('change', render);
 
 // ── 儀表板渲染 ──
 function render() {
