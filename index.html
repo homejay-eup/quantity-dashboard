@@ -231,7 +231,7 @@
   .dc2 { width: 240px; height: 240px; bottom: 40px; left: -80px; background: rgba(255,255,255,.06); }
   .dc3 { width: 150px; height: 150px; top: 44%; left: 16%; background: rgba(255,255,255,.05); }
   .brand-content { position: relative; z-index: 1; color: #fff; text-align: center; }
-  .brand-icon { font-size: 3.8rem; margin-bottom: 22px; filter: drop-shadow(0 4px 12px rgba(0,0,0,.2)); }
+  .brand-icon { margin-bottom: 22px; filter: drop-shadow(0 4px 16px rgba(0,0,0,.18)); }
   .brand-content h1 {
     font-size: 2.4rem; font-weight: 800; letter-spacing: 3px;
     color: #fff !important; margin-bottom: 10px;
@@ -337,7 +337,14 @@
     <div class="deco-circle dc2"></div>
     <div class="deco-circle dc3"></div>
     <div class="brand-content">
-      <div class="brand-icon">📊</div>
+      <div class="brand-icon">
+        <svg width="72" height="72" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="8"  y="38" width="14" height="26" rx="4" fill="rgba(255,255,255,.95)"/>
+          <rect x="29" y="24" width="14" height="40" rx="4" fill="rgba(255,255,255,.95)"/>
+          <rect x="50" y="10" width="14" height="54" rx="4" fill="rgba(255,255,255,.95)"/>
+          <line x1="4" y1="68" x2="68" y2="68" stroke="rgba(255,255,255,.4)" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
       <h1>數量統計表</h1>
       <h2>儀 表 板 系 統</h2>
       <p class="brand-desc">作業數量即時統計 &nbsp;·&nbsp; 報表一鍵匯出</p>
