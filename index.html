@@ -226,8 +226,7 @@
 
   <div class="tab-bar">
     <button class="active" data-tab="dashboard" onclick="switchTab('dashboard')">儀表板</button>
-    <button data-tab="monthly" onclick="switchTab('monthly')">月報</button>
-    <button data-tab="weekly" onclick="switchTab('weekly')">周報</button>
+    <button data-tab="report" onclick="switchTab('report')">報表</button>
   </div>
 
   <!-- 儀表板 -->
@@ -264,31 +263,21 @@
     </div>
   </div>
 
-  <!-- 月報 -->
-  <div id="tab-monthly" style="display:none">
+  <!-- 報表 -->
+  <div id="tab-report" style="display:none">
     <div class="report-section">
       <div class="report-controls">
-        <label>開始日期<input type="date" id="rpt-m-start" onchange="renderMonthlyReport()"></label>
+        <label>開始日期<input type="date" id="rpt-r-start" onchange="renderReport()"></label>
         <span class="date-sep">～</span>
-        <label>結束日期<input type="date" id="rpt-m-end" onchange="renderMonthlyReport()"></label>
-        <div id="m-filter-slot" style="display:contents"></div>
-        <span class="rpt-date" id="rpt-m-today"></span>
+        <label>結束日期<input type="date" id="rpt-r-end" onchange="renderReport()"></label>
+        <label>④ 細項<select id="rpt-r-breakdown" onchange="renderReport()">
+          <option value="week">週別</option>
+          <option value="day">日別</option>
+        </select></label>
+        <div id="r-filter-slot" style="display:contents"></div>
+        <span class="rpt-date" id="rpt-r-today"></span>
       </div>
-      <div id="rpt-m-body"><div class="rpt-placeholder">請選擇開始與結束日期</div></div>
-    </div>
-  </div>
-
-  <!-- 周報 -->
-  <div id="tab-weekly" style="display:none">
-    <div class="report-section">
-      <div class="report-controls">
-        <label>開始日期<input type="date" id="rpt-w-start" onchange="renderWeeklyReport()"></label>
-        <span class="date-sep">～</span>
-        <label>結束日期<input type="date" id="rpt-w-end" onchange="renderWeeklyReport()"></label>
-        <div id="w-filter-slot" style="display:contents"></div>
-        <span class="rpt-date" id="rpt-w-today"></span>
-      </div>
-      <div id="rpt-w-body"><div class="rpt-placeholder">請選擇開始與結束日期</div></div>
+      <div id="rpt-r-body"><div class="rpt-placeholder">請選擇開始與結束日期</div></div>
     </div>
   </div>
 </div>
@@ -337,10 +326,10 @@ let activeReportTab = null;
 function switchTab(tab) {
   document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
   document.querySelector(`.tab-bar button[data-tab="${tab}"]`).classList.add('active');
-  ['dashboard','monthly','weekly'].forEach(id =>
+  ['dashboard','report'].forEach(id =>
     document.getElementById('tab-' + id).style.display = 'none');
   document.getElementById('tab-' + tab).style.display = 'block';
-  activeReportTab = (tab === 'monthly' || tab === 'weekly') ? tab : null;
+  activeReportTab = tab === 'report' ? 'report' : null;
 }
 
 // ── 載入資料 ──
@@ -369,8 +358,7 @@ async function loadData() {
     render();
     const now = new Date();
     const dateStr = now.toLocaleDateString('zh-TW', {year:'numeric', month:'2-digit', day:'2-digit'});
-    document.getElementById('rpt-m-today').textContent = '製表日期：' + dateStr;
-    document.getElementById('rpt-w-today').textContent = '製表日期：' + dateStr;
+    document.getElementById('rpt-r-today').textContent = '製表日期：' + dateStr;
     document.getElementById('kpi-updated').textContent =
       now.toLocaleTimeString('zh-TW', {hour:'2-digit', minute:'2-digit'});
   } catch(e) {
@@ -544,7 +532,7 @@ function initProductList() {
       }
     }catch(e){}
   });
-  ['m','w'].forEach(injectFilterControls);
+  ['r'].forEach(injectFilterControls);
   updateFilterBadges();
 }
 
@@ -594,8 +582,7 @@ function getFilteredData(start, end) {
 }
 
 function rerender() {
-  if(activeReportTab==='monthly') renderMonthlyReport();
-  else if(activeReportTab==='weekly') renderWeeklyReport();
+  if(activeReportTab==='report') renderReport();
 }
 
 function toggleFP(prefix, type) {
@@ -719,12 +706,10 @@ function saveListFilter(type) {
 }
 
 function updateFilterBadges() {
-  ['m','w'].forEach(t=>{
-    setBadge(t+'-person-badge',  filterPersons,   PEOPLE.length,         '人');
-    setBadge(t+'-wtype-badge',   filterWorkTypes, allWorkTypeList.length, '類');
-    setBadge(t+'-itype-badge',   filterItemTypes, allItemTypeList.length, '類');
-    setProductBadge(t+'-product-badge');
-  });
+  setBadge('r-person-badge',  filterPersons,   PEOPLE.length,         '人');
+  setBadge('r-wtype-badge',   filterWorkTypes, allWorkTypeList.length, '類');
+  setBadge('r-itype-badge',   filterItemTypes, allItemTypeList.length, '類');
+  setProductBadge('r-product-badge');
 }
 function setBadge(id,state,total,unit){
   const el=document.getElementById(id); if(!el) return;
@@ -737,24 +722,18 @@ function setProductBadge(id){
   else{el.textContent=filterProducts.size+'/'+allProductList.length;el.className='filter-badge partial';}
 }
 
-// ── 月報 ──
-function renderMonthlyReport() {
-  const start = document.getElementById('rpt-m-start').value;
-  const end   = document.getElementById('rpt-m-end').value;
-  const body  = document.getElementById('rpt-m-body');
+// ── 報表 ──
+function renderReport() {
+  const start = document.getElementById('rpt-r-start').value;
+  const end   = document.getElementById('rpt-r-end').value;
+  const breakdown = document.getElementById('rpt-r-breakdown').value;
+  const body  = document.getElementById('rpt-r-body');
   if (!start || !end || start > end) { body.innerHTML = '<div class="rpt-placeholder">請選擇開始與結束日期</div>'; return; }
   const data = getFilteredData(start, end);
-  body.innerHTML = buildBlock12(data) + buildBlock3(data) + buildBlock4Monthly(data, start, end);
-}
-
-// ── 周報 ──
-function renderWeeklyReport() {
-  const start = document.getElementById('rpt-w-start').value;
-  const end   = document.getElementById('rpt-w-end').value;
-  const body  = document.getElementById('rpt-w-body');
-  if (!start || !end || start > end) { body.innerHTML = '<div class="rpt-placeholder">請選擇開始與結束日期</div>'; return; }
-  const data = getFilteredData(start, end);
-  body.innerHTML = buildBlock12(data) + buildBlock3(data) + buildBlock4Weekly(data, start, end);
+  const block4 = breakdown === 'day'
+    ? buildBlock4Weekly(data, start, end)
+    : buildBlock4Monthly(data, start, end);
+  body.innerHTML = buildBlock12(data) + buildBlock3(data) + block4;
 }
 
 // ① ② 並排
