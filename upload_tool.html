@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>數量統計表 — 上傳工具</title>
+<style>
+:root{
+  --blue-dark:#1F4E79;--blue-mid:#2E75B6;--blue-light:#DAEEF3;
+  --green:#375623;--green-light:#E2EFDA;
+  --red:#C00000;--red-light:#FCE4D6;
+  --yellow:#7F6000;--yellow-light:#FFF2CC;
+  --gray:#595959;--bg:#F0F4F8;--card:#FFFFFF;
+  --border:#D0D7DE;--text:#24292F;--muted:#6E7781;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'微軟正黑體',Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+a{color:var(--blue-mid)}
+
+/* ── Header ── */
+header{background:var(--blue-dark);color:#fff;padding:16px 24px;display:flex;align-items:center;gap:12px}
+header h1{font-size:18px;font-weight:700}
+header p{font-size:12px;opacity:.75}
+
+/* ── Layout ── */
+main{max-width:1200px;margin:24px auto;padding:0 16px;display:flex;flex-direction:column;gap:16px}
+
+/* ── Card ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.card-head{background:var(--blue-dark);color:#fff;padding:10px 16px;font-weight:700;font-size:13px;display:flex;align-items:center;gap:8px}
+.card-head.green{background:var(--green)}
+.card-head.gray{background:var(--gray)}
+.card-body{padding:16px}
+
+/* ── Form elements ── */
+label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px}
+input[type=text],select{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;font-family:inherit}
+input[type=text]:focus,select:focus{outline:2px solid var(--blue-mid);border-color:transparent}
+
+/* ── Buttons ── */
+.btn{padding:8px 18px;border:none;border-radius:4px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:600;transition:opacity .15s}
+.btn:disabled{opacity:.4;cursor:default}
+.btn-primary{background:var(--blue-mid);color:#fff}
+.btn-success{background:var(--green);color:#fff}
+.btn-danger{background:var(--red);color:#fff}
+.btn-sm{padding:4px 10px;font-size:12px;border-radius:3px}
+.btn:hover:not(:disabled){opacity:.85}
+.btn-group{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* ── Drop zone ── */
+#drop-zone{border:2px dashed var(--blue-mid);border-radius:8px;padding:40px 20px;text-align:center;cursor:pointer;transition:all .2s;background:#F7FAFC}
+#drop-zone.drag-over{background:var(--blue-light);border-color:var(--blue-dark)}
+#drop-zone svg{display:block;margin:0 auto 12px}
+#drop-zone p{color:var(--muted);font-size:13px;margin-top:6px}
+#drop-zone strong{color:var(--blue-dark)}
+
+/* ── File list ── */
+#file-list{margin-top:12px;display:flex;flex-direction:column;gap:6px}
+.file-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:#FAFAFA}
+.file-item.ok{border-color:#70AD47}
+.file-item.warn{border-color:#FFC000;background:var(--yellow-light)}
+.file-item.err{border-color:var(--red);background:var(--red-light)}
+.file-name{flex:1;font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.badge{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;white-space:nowrap}
+.badge-ok{background:#E2EFDA;color:var(--green)}
+.badge-warn{background:var(--yellow-light);color:var(--yellow)}
+.badge-err{background:var(--red-light);color:var(--red)}
+.badge-blue{background:var(--blue-light);color:var(--blue-dark)}
+
+/* ── Progress ── */
+#progress-wrap{display:none;padding:12px 0}
+#progress-bar-outer{height:6px;background:#E0E0E0;border-radius:3px;overflow:hidden}
+#progress-bar{height:100%;background:var(--blue-mid);width:0%;transition:width .2s}
+#progress-text{font-size:12px;color:var(--muted);margin-top:6px}
+
+/* ── Preview table ── */
+#preview-section{display:none}
+.tbl-wrap{overflow-x:auto;max-height:480px;overflow-y:auto}
+table.preview{border-collapse:collapse;width:100%;font-size:12px}
+table.preview th{background:var(--blue-dark);color:#fff;padding:8px 10px;text-align:left;position:sticky;top:0;z-index:1;white-space:nowrap}
+table.preview td{padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+table.preview tr:nth-child(even) td{background:#F8FAFB}
+table.preview tr.deleted td{opacity:.3;text-decoration:line-through}
+table.preview td[contenteditable=true]{background:#FFFDE7;outline:none}
+table.preview td[contenteditable=true]:focus{background:#FFF9C4;box-shadow:inset 0 0 0 2px var(--blue-mid)}
+.del-row{color:var(--red);cursor:pointer;font-size:16px;line-height:1;padding:0 4px}
+.del-row:hover{opacity:.7}
+
+/* ── Status badge ── */
+.status-ok{color:var(--green);font-weight:700}
+.status-warn{color:var(--yellow)}
+.status-err{color:var(--red)}
+
+/* ── Results ── */
+#result-section{display:none}
+.result-stat{display:flex;gap:24px;flex-wrap:wrap;padding:12px 0}
+.stat-box{flex:1;min-width:120px;border-radius:6px;padding:16px;text-align:center}
+.stat-box .num{font-size:32px;font-weight:700;line-height:1}
+.stat-box .lbl{font-size:12px;margin-top:4px;opacity:.8}
+.stat-ok{background:var(--green-light);color:var(--green)}
+.stat-err{background:var(--red-light);color:var(--red)}
+.stat-skip{background:var(--yellow-light);color:var(--yellow)}
+
+/* ── Warning box ── */
+.warn-box{background:var(--yellow-light);border-left:4px solid #FFC000;padding:10px 14px;border-radius:0 4px 4px 0;font-size:13px;color:var(--yellow);margin-top:8px}
+
+/* ── Shipping date panel ── */
+#shipping-date-panel{display:none;background:var(--yellow-light);border:1px solid #FFC000;border-radius:6px;padding:12px 16px;margin-top:12px}
+#shipping-date-panel .panel-title{font-weight:700;font-size:13px;color:var(--yellow);margin-bottom:8px}
+#shipping-date-panel input[type=date]{width:auto;min-width:150px}
+
+/* ── Util ── */
+.row2{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+.row2>*{flex:1;min-width:200px}
+.mt8{margin-top:8px}.mt12{margin-top:12px}.mt16{margin-top:16px}
+.text-sm{font-size:12px;color:var(--muted)}
+hr{border:none;border-top:1px solid var(--border);margin:12px 0}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>📤 數量統計表 — 上傳工具</h1>
+    <p>支援：成品檢驗日報表(.docx)、維修/移交/進貨/出貨/送審(.xlsx/.xls)　　⚠ .doc 格式需先另存為 .docx</p>
+  </div>
+</header>
+
+<main>
+
+<!-- ② 上傳 -->
+<div class="card">
+  <div class="card-head">📁 上傳檔案</div>
+  <div class="card-body">
+    <div id="drop-zone" onclick="document.getElementById('file-input').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2E75B6" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <strong>拖曳檔案到此，或點擊選擇</strong>
+      <p>支援同時上傳多個不同類型的檔案</p>
+      <p style="margin-top:4px;font-size:11px">.docx &nbsp;.xlsx &nbsp;.xls　（⚠ .doc 不支援，請先另存為 .docx）</p>
+    </div>
+    <input type="file" id="file-input" multiple accept=".docx,.xlsx,.xls,.XLSX" style="display:none" onchange="onFileSelect(this.files)">
+
+    <div id="file-list"></div>
+
+    <!-- 出貨表日期區間（有出貨表時顯示） -->
+    <div id="shipping-date-panel">
+      <div class="panel-title">📅 出貨表資料日期區間（必填）</div>
+      <p style="font-size:12px;color:var(--yellow);margin-bottom:8px">偵測到出貨表，請填入本批資料涵蓋的週次起迄日，系統將以「起日」作為每筆記錄的日期。</p>
+      <div style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap">
+        <div>
+          <label>資料起日（週一）</label>
+          <input type="date" id="outgoing-date-from">
+        </div>
+        <div>
+          <label>資料迄日（週五，僅供參考）</label>
+          <input type="date" id="outgoing-date-to">
+        </div>
+      </div>
+    </div>
+
+    <div id="progress-wrap">
+      <div id="progress-bar-outer"><div id="progress-bar"></div></div>
+      <div id="progress-text">解析中…</div>
+    </div>
+
+    <div class="mt12 btn-group">
+      <button class="btn btn-primary" id="parse-btn" onclick="parseAllFiles()" disabled>🔍 解析所有檔案</button>
+      <button class="btn btn-sm" style="background:#eee" onclick="clearFiles()">清除</button>
+    </div>
+  </div>
+</div>
+
+<!-- ③ 預覽 -->
+<div class="card" id="preview-section">
+  <div class="card-head">📋 預覽 &amp; 確認
+    <button class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#fff;margin-left:auto" onclick="toggleListEditor()">⚙️ 編輯人員／作業類型清單</button>
+  </div>
+  <div class="card-body">
+
+    <!-- 清單編輯面板 -->
+    <div id="list-editor" style="display:none;background:#F7FAFC;border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:12px">
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <div style="flex:1;min-width:180px">
+          <label>人員清單（每行一個）</label>
+          <textarea id="people-textarea" rows="6" style="width:100%;font-size:12px;padding:6px;border:1px solid var(--border);border-radius:4px;font-family:inherit;resize:vertical"></textarea>
+        </div>
+        <div style="flex:1;min-width:180px">
+          <label>作業類型清單（每行一個）</label>
+          <textarea id="wtype-textarea" rows="6" style="width:100%;font-size:12px;padding:6px;border:1px solid var(--border);border-radius:4px;font-family:inherit;resize:vertical"></textarea>
+        </div>
+      </div>
+      <div class="mt8 btn-group">
+        <button class="btn btn-sm btn-primary" onclick="applyListEdit()">套用</button>
+        <span id="list-save-msg" style="font-size:12px;color:var(--green)"></span>
+      </div>
+    </div>
+
+    <!-- 工具列 -->
+    <div class="btn-group" style="margin-bottom:8px">
+      <span id="record-count" class="badge badge-blue"></span>
+      <button class="btn btn-sm" style="background:#eee" onclick="selectAll(true)">全選</button>
+      <button class="btn btn-sm" style="background:#eee" onclick="selectAll(false)">全不選</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteSelected()">刪除選取列</button>
+      <span class="text-sm" style="margin-left:auto">▶ 黃色底格可直接點擊編輯</span>
+    </div>
+
+    <!-- 批次修改列 -->
+    <div class="btn-group" style="margin-bottom:10px;padding:8px;background:#F7FAFC;border:1px solid var(--border);border-radius:6px">
+      <span style="font-size:12px;color:var(--muted);white-space:nowrap">批次修改選取列：</span>
+      <select id="batch-person" style="font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:4px">
+        <option value="">人員（不變）</option>
+      </select>
+      <select id="batch-worktype" style="font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:4px">
+        <option value="">作業類型（不變）</option>
+      </select>
+      <button class="btn btn-sm btn-primary" onclick="applyBatchEdit()">套用到選取列</button>
+    </div>
+
+    <div class="tbl-wrap">
+      <table class="preview" id="preview-table">
+        <thead>
+          <tr>
+            <th style="width:32px"><input type="checkbox" id="chk-all" onchange="selectAll(this.checked)"></th>
+            <th>日期</th>
+            <th>人員</th>
+            <th>作業類型</th>
+            <th>品號</th>
+            <th>品名</th>
+            <th style="width:60px">數量</th>
+            <th>備註</th>
+            <th>來源檔案</th>
+            <th style="width:28px"></th>
+          </tr>
+        </thead>
+        <tbody id="preview-tbody"></tbody>
+      </table>
+    </div>
+
+    <div id="parse-errors" class="mt8"></div>
+
+    <hr>
+    <div class="btn-group">
+      <button class="btn btn-success" id="submit-btn" onclick="submitRecords()">✅ 確認送出</button>
+      <span id="submit-count" class="text-sm"></span>
+    </div>
+    <div class="warn-box mt8" style="display:none" id="cors-warn">
+      ⚠️ 若送出後無回應，可能是 CORS 限制。請確認 Apps Script 已部署為「執行身分：我，存取：任何人」。
+      或改用下方「下載 JSON」手動匯入。
+      <div class="mt8"><button class="btn btn-sm btn-primary" onclick="downloadJSON()">⬇ 下載 JSON</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ④ 結果 -->
+<div class="card" id="result-section">
+  <div class="card-head green">✅ 送出結果</div>
+  <div class="card-body">
+    <div class="result-stat">
+      <div class="stat-box stat-ok"><div class="num" id="res-ok">0</div><div class="lbl">成功送出</div></div>
+      <div class="stat-box stat-err"><div class="num" id="res-err">0</div><div class="lbl">失敗</div></div>
+    </div>
+    <div id="res-files" class="mt8"></div>
+    <div id="res-detail" class="text-sm mt8"></div>
+    <button class="btn btn-primary mt12" onclick="resetAll()">🔄 繼續上傳新檔案</button>
+  </div>
+</div>
+
+</main>
+
+<!-- ── Libraries ── -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js"></script>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  設定 & 狀態
+// ═══════════════════════════════════════════════════════════
+const PEOPLE  = ['Jenny','Kevin','Neil','van','Brian','阿昌','Gino','Mandy','Homejay'];
+const WTYPES  = ['成品','送修','修還','進貨','出貨','整新','檢測','環保送審','合格證','回廠','回廠-異常'];
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxGchUIstRTZJY9Auka_K9CAfGpx6a5MoiPC2bIQfHkhMBSy1pwHlvflzbSBY3DDSsZ/exec';
+const LS_PEOPLE = 'dqs_people';
+const LS_WTYPES = 'dqs_wtypes';
+
+let uploadedFiles = [];  // [{file, type, status, msg}]
+let parsedRecords = [];  // [{date,person,workType,productCode,productName,quantity,remark,sourceFile}]
+
+// 初始化
+window.onload = () => {
+  const sp = localStorage.getItem(LS_PEOPLE);
+  const sw = localStorage.getItem(LS_WTYPES);
+  if (sp) PEOPLE.splice(0, PEOPLE.length, ...JSON.parse(sp));
+  if (sw) WTYPES.splice(0, WTYPES.length,  ...JSON.parse(sw));
+  updateSubmitCount();
+};
+
+// ═══════════════════════════════════════════════════════════
+//  檔案類型識別
+// ═══════════════════════════════════════════════════════════
+function detectType(filename) {
+  const n = filename.toLowerCase();
+  if (/成品.*[日報表|日報]/.test(n) || /日報表.*成品/.test(n)) return '成品';
+  if (/修還/.test(n)) return '修還';    // 修還在送修之前判斷
+  if (/送修/.test(n)) return '送修';
+  if (/移交/.test(n) || (/檢測/.test(n) && /整新/.test(n))) return '移交';
+  if (/送審/.test(n)) return '環保送審';
+  if (/進貨/.test(n)) return '進貨';
+  if (/出貨/.test(n)) return '出貨';
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  拖曳 & 選擇檔案
+// ═══════════════════════════════════════════════════════════
+function onDragOver(e) { e.preventDefault(); document.getElementById('drop-zone').classList.add('drag-over'); }
+function onDragLeave(e){ document.getElementById('drop-zone').classList.remove('drag-over'); }
+function onDrop(e)     { e.preventDefault(); document.getElementById('drop-zone').classList.remove('drag-over'); onFileSelect(e.dataTransfer.files); }
+
+function onFileSelect(fileList) {
+  const incoming = Array.from(fileList);
+  // 去重（同名不重複加）
+  const existingNames = new Set(uploadedFiles.map(f => f.file.name));
+  incoming.forEach(file => {
+    if (existingNames.has(file.name)) return;
+    const ext  = file.name.split('.').pop().toLowerCase();
+    const type = detectType(file.name);
+    let status, msg;
+
+    if (ext === 'doc') {
+      status = 'err';
+      msg    = '.doc 格式不支援，請在 Word 中另存為 .docx 後重新上傳';
+    } else if (!type) {
+      status = 'warn';
+      msg    = '無法自動識別類型，請手動選擇';
+    } else {
+      status = 'ok';
+      msg    = '已識別：' + typeLabel(type);
+    }
+    uploadedFiles.push({ file, type, status, msg });
+    existingNames.add(file.name);
+  });
+  renderFileList();
+  document.getElementById('parse-btn').disabled = !uploadedFiles.some(f => f.status !== 'err');
+}
+
+function typeLabel(t) {
+  const map = { '成品':'成品檢驗日報表','送修':'維修-送修','修還':'維修-修還','移交':'移交總表','環保送審':'環保車機送審','進貨':'進貨表','出貨':'出貨表' };
+  return map[t] || t;
+}
+
+function renderFileList() {
+  const el = document.getElementById('file-list');
+  // 顯示/隱藏出貨表日期面板
+  const hasOutgoing = uploadedFiles.some(f => f.type === '出貨');
+  document.getElementById('shipping-date-panel').style.display = hasOutgoing ? 'block' : 'none';
+  if (!uploadedFiles.length) { el.innerHTML=''; return; }
+
+  el.innerHTML = uploadedFiles.map((f, idx) => `
+    <div class="file-item ${f.status}">
+      <span class="file-name" title="${f.file.name}">${f.file.name}</span>
+      ${f.status === 'warn' ? `
+        <select style="width:140px;font-size:12px;padding:3px" onchange="changeType(${idx},this.value)">
+          <option value="">-- 選擇類型 --</option>
+          ${['成品','送修','修還','移交','環保送審','進貨','出貨'].map(t => `<option value="${t}" ${f.type===t?'selected':''}>${typeLabel(t)}</option>`).join('')}
+        </select>
+      ` : `<span class="badge badge-${f.status==='ok'?'ok':f.status==='warn'?'warn':'err'}">${typeLabel(f.type)||'？'}</span>`}
+      <span class="text-sm" style="max-width:260px;color:${f.status==='err'?'var(--red)':f.status==='warn'?'var(--yellow)':'var(--muted)'}">${f.msg}</span>
+      <button class="btn btn-sm" style="background:#eee;flex-shrink:0" onclick="removeFile(${idx})">✕</button>
+    </div>
+  `).join('');
+}
+
+function changeType(idx, val) {
+  uploadedFiles[idx].type   = val;
+  uploadedFiles[idx].status = val ? 'ok' : 'warn';
+  uploadedFiles[idx].msg    = val ? '已識別：' + typeLabel(val) : '請選擇類型';
+  renderFileList();
+}
+
+function removeFile(idx) {
+  uploadedFiles.splice(idx, 1);
+  renderFileList();
+  document.getElementById('parse-btn').disabled = !uploadedFiles.some(f => f.status !== 'err');
+}
+
+function clearFiles() {
+  uploadedFiles = [];
+  parsedRecords = [];
+  renderFileList();
+  document.getElementById('preview-section').style.display = 'none';
+  document.getElementById('result-section').style.display  = 'none';
+  document.getElementById('parse-btn').disabled = true;
+  // 解除鎖定（無論是否曾送出）
+  const dz = document.getElementById('drop-zone');
+  dz.onclick    = () => document.getElementById('file-input').click();
+  dz.ondragover = onDragOver;
+  dz.ondrop     = onDrop;
+  dz.style.opacity = '1'; dz.style.cursor = 'pointer';
+  const fi = document.getElementById('file-input');
+  fi.disabled = false;
+  fi.value = '';   // 重置，讓同名檔案可以再次觸發 onchange
+  const sb = document.getElementById('submit-btn');
+  if (sb) { sb.disabled = false; sb.textContent = '✅ 確認送出'; }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  日期格式化 & 人員正規化
+// ═══════════════════════════════════════════════════════════
+function formatDate(v) {
+  if (v === null || v === undefined || v === '') return '';
+  if (v instanceof Date) {
+    if (isNaN(v.getTime())) return '';
+    return v.toISOString().substring(0, 10);
+  }
+  if (typeof v === 'string') {
+    v = v.trim();
+    if (!v) return '';
+    if (/^\d{4}-\d{2}-\d{2}/.test(v)) return v.substring(0, 10);
+    if (/^\d{4}\/\d{1,2}\/\d{1,2}/.test(v)) {
+      const p = v.split('/');
+      return `${p[0]}-${p[1].padStart(2,'0')}-${p[2].padStart(2,'0')}`;
+    }
+    const d = new Date(v);
+    if (!isNaN(d.getTime())) return d.toISOString().substring(0, 10);
+  }
+  if (typeof v === 'number' && v > 30000 && v < 60000) {
+    // Excel serial date → JS timestamp
+    const ms = Math.round((v - 25569) * 86400 * 1000);
+    const d  = new Date(ms);
+    if (!isNaN(d.getTime())) {
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+    }
+  }
+  return '';
+}
+
+const PERSON_MAP = { 'Brian':'Brian','brian':'Brian','Van':'van','VAN':'van','JENNY':'Jenny','KEVIN':'Kevin','NEIL':'Neil' };
+function normalizePerson(p) {
+  p = (p || '').trim();
+  return PERSON_MAP[p] || (p ? p.charAt(0).toUpperCase() + p.slice(1) : '');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  解析核心
+// ═══════════════════════════════════════════════════════════
+async function parseAllFiles() {
+  const btn = document.getElementById('parse-btn');
+  btn.disabled = true;
+  parsedRecords = [];
+  const errors  = [];
+  const toProcess = uploadedFiles.filter(f => f.status !== 'err' && f.type);
+  if (!toProcess.length) { btn.disabled=false; return; }
+
+  setProgress(0, `0 / ${toProcess.length} 個檔案`);
+
+  for (let i = 0; i < toProcess.length; i++) {
+    const { file, type } = toProcess[i];
+    setProgress(Math.round((i/toProcess.length)*100), `解析中：${file.name}`);
+    try {
+      let result;
+      const ext = file.name.split('.').pop().toLowerCase();
+      if (type === '成品') {
+        if (ext === 'docx') result = await parseDocxReport(file);
+        else { errors.push(`${file.name}：.doc 不支援`); continue; }
+      } else {
+        result = await parseExcelFile(file, type);
+      }
+      if (result.errors && result.errors.length) errors.push(...result.errors);
+      if (result.records && result.records.length) parsedRecords.push(...result.records);
+    } catch (err) {
+      errors.push(`${file.name}：${err.message}`);
+    }
+  }
+
+  setProgress(100, `完成，共 ${parsedRecords.length} 筆`);
+  setTimeout(() => document.getElementById('progress-wrap').style.display='none', 1000);
+
+  renderPreviewTable(parsedRecords);
+  renderParseErrors(errors);
+  document.getElementById('preview-section').style.display = 'block';
+  document.getElementById('preview-section').scrollIntoView({ behavior:'smooth' });
+  btn.disabled = false;
+}
+
+function setProgress(pct, txt) {
+  const wrap = document.getElementById('progress-wrap');
+  wrap.style.display = 'block';
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('progress-text').textContent = txt;
+}
+
+// ── 成品檢驗日報表 (.docx) ──────────────────────────────────
+async function parseDocxReport(file) {
+  const name = file.name;
+  // 日期：前6碼 YYMMDD
+  const dm = name.match(/^(\d{2})(\d{2})(\d{2})/);
+  if (!dm) return { records:[], errors:[`${name}：無法從檔名解析日期`] };
+  const date = `20${dm[1]}-${dm[2]}-${dm[3]}`;
+
+  // 人員：-Name 部分，取到括號/空格/底線/點之前
+  const pm = name.match(/-([^-\.\(\（\s\/\\]+)/);
+  const person = normalizePerson(pm ? pm[1] : '');
+
+  const arrayBuffer = await file.arrayBuffer();
+  const result = await mammoth.convertToHtml({ arrayBuffer });
+  const div  = document.createElement('div');
+  div.innerHTML = result.value;
+  const tables = div.querySelectorAll('table');
+  if (!tables.length) return { records:[], errors:[`${name}：找不到表格，請確認檔案格式`] };
+
+  // Table 1：製程摘要（機種 + 生產數）
+  const rows   = Array.from(tables[0].querySelectorAll('tr'));
+  const records = [];
+  const seen   = new Set();
+
+  for (let i = 2; i < rows.length; i++) {
+    const cells = Array.from(rows[i].querySelectorAll('td')).map(td => td.textContent.trim());
+    if (cells.length < 4) continue;
+
+    // 找「生產數」：從 index 2 起，第一個正整數字串
+    let qIdx = -1;
+    for (let j = 2; j < cells.length; j++) {
+      const n = Number(cells[j]);
+      if (Number.isInteger(n) && n > 0 && cells[j] === String(n)) { qIdx = j; break; }
+    }
+    if (qIdx < 1) continue;
+
+    const productName = cells[qIdx - 1];
+    if (!productName || productName.length < 2) continue;
+    if (['機種','加工','項目','抽樣','合格','其他'].some(w => productName.includes(w))) continue;
+    if (seen.has(productName)) continue;
+    seen.add(productName);
+
+    records.push({ date, person, workType:'成品', productCode:'', productName, quantity:parseInt(cells[qIdx]), remark:'', sourceFile:name });
+  }
+
+  if (!records.length) return { records:[], errors:[`${name}：未解析到有效品項，請手動確認`] };
+  return { records, errors:[] };
+}
+
+// ── Excel 統一入口 ──────────────────────────────────────────
+async function parseExcelFile(file, type) {
+  const ab   = await file.arrayBuffer();
+  const wb   = XLSX.read(new Uint8Array(ab), { type:'array', cellDates:true });
+  const ws   = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
+  const name = file.name;
+
+  switch (type) {
+    case '送修':     return parseRepairSent(rows, name);
+    case '修還':     return parseRepairReturned(rows, name);
+    case '移交':     return parseTransfer(rows, name);
+    case '環保送審': return parseSurvey(rows, name);
+    case '進貨':     return parseIncoming(rows, name);
+    case '出貨':     return parseOutgoing(rows, name);
+    default: return { records:[], errors:[`不支援的類型：${type}`] };
+  }
+}
+
+// 找到包含關鍵字的 header 列索引
+function findHeaderIdx(rows, keywords) {
+  for (let i = 0; i < Math.min(rows.length, 12); i++) {
+    const row = rows[i].map(v => String(v).trim());
+    const hits = keywords.filter(k => row.some(v => v.includes(k)));
+    if (hits.length >= Math.ceil(keywords.length / 2)) return i;
+  }
+  return -1;
+}
+
+// 根據 header 列建立欄位 index map
+function buildColMap(headerRow, colDefs) {
+  const hdr = headerRow.map(v => String(v).trim());
+  const map = {};
+  for (const [key, keywords] of Object.entries(colDefs)) {
+    const idx = hdr.findIndex(h => keywords.some(k => h.includes(k)));
+    if (idx >= 0) map[key] = idx;
+  }
+  return map;
+}
+
+// ── 維修總表 - 送修 ─────────────────────────────────────────
+function parseRepairSent(rows, name) {
+  const hi = findHeaderIdx(rows, ['產品名稱','送修時間','送修人']);
+  if (hi < 0) return { records:[], errors:[`${name}：找不到表頭`] };
+  const cm = buildColMap(rows[hi], {
+    productName:['產品名稱'],
+    date:       ['送修時間','新增時間'],
+    person:     ['送修人'],
+    remark:     ['送修原因'],
+  });
+  const records = [];
+  for (let i = hi+1; i < rows.length; i++) {
+    const r = rows[i];
+    const pn = String(r[cm.productName]||'').trim();
+    if (!pn) continue;
+    records.push({
+      date:        formatDate(r[cm.date]),
+      person:      normalizePerson(r[cm.person]),
+      workType:    '送修',
+      productCode: '',
+      productName: pn,
+      quantity:    1,
+      remark:      String(r[cm.remark]||'').substring(0,60),
+      sourceFile:  name,
+    });
+  }
+  return { records, errors:[] };
+}
+
+// ── 維修總表 - 修還 ─────────────────────────────────────────
+function parseRepairReturned(rows, name) {
+  const hi = findHeaderIdx(rows, ['產品名稱','完成時間','完成人']);
+  if (hi < 0) return { records:[], errors:[`${name}：找不到表頭`] };
+  const cm = buildColMap(rows[hi], {
+    productName:['產品名稱'],
+    status:     ['送修狀態','狀態'],
+    date:       ['完成時間'],
+    person:     ['完成人'],
+    remark:     ['完成原因'],
+  });
+  const records = [];
+  for (let i = hi+1; i < rows.length; i++) {
+    const r = rows[i];
+    const pn = String(r[cm.productName]||'').trim();
+    if (!pn) continue;
+    const dt = formatDate(r[cm.date]);
+    if (!dt) continue; // 沒有完成時間=未修還
+    records.push({
+      date: dt, person: normalizePerson(r[cm.person]),
+      workType:'修還', productCode:'', productName:pn, quantity:1,
+      remark: String(r[cm.remark]||'').substring(0,60),
+      sourceFile:name,
+    });
+  }
+  return { records, errors:[] };
+}
+
+// ── 移交總表 ────────────────────────────────────────────────
+function parseTransfer(rows, name) {
+  const hi = findHeaderIdx(rows, ['產品名稱','最後更新人','接收倉庫']);
+  if (hi < 0) return { records:[], errors:[`${name}：找不到表頭`] };
+  const cm = buildColMap(rows[hi], {
+    productName:  ['產品名稱'],
+    productCode:  ['產品編號'],
+    date:         ['入庫時間','最後更新時間'],
+    person:       ['最後更新人'],
+    destWarehouse:['接收倉庫'],
+    status:       ['狀態'],
+  });
+  const records = [];
+  for (let i = hi+1; i < rows.length; i++) {
+    const r = rows[i];
+    const pn = String(r[cm.productName]||'').trim();
+    if (!pn) continue;
+    const dest    = String(r[cm.destWarehouse]||'').trim();
+    const workType= dest === '整新倉' ? '整新' : '檢測';
+    records.push({
+      date:        formatDate(r[cm.date]),
+      person:      normalizePerson(r[cm.person]),
+      workType,
+      productCode: String(r[cm.productCode]||''),
+      productName: pn,
+      quantity:    1,
+      remark:      String(r[cm.status]||''),
+      sourceFile:  name,
+    });
+  }
+  return { records, errors:[] };
+}
+
+// ── 環保車機送審 ────────────────────────────────────────────
+function parseSurvey(rows, name) {
+  const hi = findHeaderIdx(rows, ['產品類型','日期','業助']);
+  if (hi < 0) return { records:[], errors:[`${name}：找不到表頭`] };
+  const cm = buildColMap(rows[hi], {
+    productName:['產品類型'],
+    date:       ['日期'],
+    customer:   ['客戶名稱'],
+  });
+  const records = [];
+  for (let i = hi+1; i < rows.length; i++) {
+    const r = rows[i];
+    const pn = String(r[cm.productName]||'').trim();
+    if (!pn || pn.includes('產品類型')) continue;
+    records.push({
+      date:        formatDate(r[cm.date]),
+      person:      '',
+      workType:    '環保送審',
+      productCode: '',
+      productName: pn,
+      quantity:    1,
+      remark:      String(r[cm.customer]||'').substring(0,30),
+      sourceFile:  name,
+    });
+  }
+  return { records, errors:[] };
+}
+
+// ── 進貨表 ──────────────────────────────────────────────────
+function parseIncoming(rows, name) {
+  // 表頭固定在第 5 列（index 4），欄位名稱比對前去除所有空白（對應 batch_parse.py 行為）
+  const HI = 4;
+  if (rows.length <= HI) return { records:[], errors:[`${name}：找不到表頭`] };
+  const norm = v => String(v || '').replace(/\s+/g, '');
+  const hdr  = rows[HI].map(norm);
+  const colOf = (...kws) => hdr.findIndex(h => kws.some(k => h.includes(norm(k))));
+
+  const ci = {
+    date:        colOf('驗收', '退貨日', '日期'),
+    productCode: colOf('品號'),
+    productName: colOf('品名'),
+    quantity:    colOf('驗收數量', '數量'),
+    remark:      colOf('備註'),
+  };
+
+  const records = [];
+  for (let i = HI + 1; i < rows.length; i++) {
+    const r   = rows[i];
+    const pn  = String(r[ci.productName] || '').trim();
+    const qty = parseInt(r[ci.quantity]  || 0, 10);
+    if (!pn || !qty || qty <= 0) continue;
+    records.push({
+      date:        formatDate(r[ci.date]),
+      person:      '',
+      workType:    '進貨',
+      productCode: String(r[ci.productCode] || ''),
+      productName: pn,
+      quantity:    qty,
+      remark:      String(r[ci.remark] || ''),
+      sourceFile:  name,
+    });
+  }
+  return { records, errors:[] };
+}
+
+// ── 出貨表 (.xls 格式：row0=標題, row3=日期, row6=表頭, row7+=資料) ────
+function parseOutgoing(rows, name) {
+  // 日期優先序：① 使用者填入的起日 → ② 檔案內容掃描 → ③ 空白（預覽時手動補）
+  const uiDateFrom = (document.getElementById('outgoing-date-from').value || '').trim();
+  let sheetDate = uiDateFrom;
+
+  if (!sheetDate && rows.length > 3) {
+    const r3 = rows[3].map(v => String(v).trim());
+    for (let c = 0; c < r3.length; c++) {
+      if (r3[c] && !r3[c].includes('單據') && !r3[c].includes('號碼')) {
+        const d = formatDate(r3[c]);
+        if (d) { sheetDate = d; break; }
+      }
+    }
+  }
+
+  // Header：找包含「品號」「品名」「數量」的列
+  const hi = findHeaderIdx(rows, ['品號','品名規格','數量']);
+  if (hi < 0) return { records:[], errors:[`${name}：找不到表頭`] };
+  const cm = buildColMap(rows[hi], {
+    productCode: ['品號'],
+    productName: ['品名規格','品名'],
+    quantity:    ['數量'],
+    remark:      ['備註'],
+  });
+
+  // 判斷出貨子類型（新單 / 維護）
+  const workType = /維護/.test(name) ? '出貨' : '出貨';
+
+  const records = [];
+  for (let i = hi+1; i < rows.length; i++) {
+    const r = rows[i];
+    const pn  = String(r[cm.productName]||'').trim();
+    const qty = parseFloat(r[cm.quantity]||0);
+    if (!pn || !qty || qty <= 0) continue;
+    // 跳過序號列（序號格式如 "1.0","2.0"... 品名為空才跳）
+    records.push({
+      date:        sheetDate,
+      person:      '',
+      workType,
+      productCode: String(r[cm.productCode]||'').replace('.0',''),
+      productName: pn,
+      quantity:    Math.round(qty),
+      remark:      String(r[cm.remark]||''),
+      sourceFile:  name,
+    });
+  }
+  return { records, errors: sheetDate?[]:[`${name}：未填入資料起日，日期欄位為空，請在預覽表格手動填入`] };
+}
+
+// ═══════════════════════════════════════════════════════════
+//  預覽表格
+// ═══════════════════════════════════════════════════════════
+function renderPreviewTable(records) {
+  const tbody = document.getElementById('preview-tbody');
+  if (!records.length) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">沒有解析到任何資料</td></tr>';
+    document.getElementById('record-count').textContent = '0 筆';
+    return;
+  }
+
+  tbody.innerHTML = records.map((r, idx) => {
+    const warn = !r.date || !r.person || !r.productName;
+    // 若人員名稱不在 PEOPLE 清單但有值，動態加入為獨立選項，讓顯示與送出一致
+    const personInList = PEOPLE.includes(r.person);
+    const extraOption  = (!personInList && r.person)
+      ? `<option value="${escHtml(r.person)}" selected>${escHtml(r.person)}</option>` : '';
+    return `
+    <tr id="row-${idx}" class="${warn?'':''}">
+      <td><input type="checkbox" class="row-chk" checked></td>
+      <td contenteditable="true" class="ed" data-idx="${idx}" data-field="date">${escHtml(r.date)}</td>
+      <td><select class="ed-sel" data-idx="${idx}" data-field="person" style="width:80px;font-size:12px;padding:2px">
+        ${PEOPLE.map(p=>`<option value="${p}" ${p===r.person?'selected':''}>${p}</option>`).join('')}
+        ${extraOption}
+        <option value="" ${(!r.person)?'selected':''}>其他</option>
+      </select></td>
+      <td><select class="ed-sel" data-idx="${idx}" data-field="workType" style="width:80px;font-size:12px;padding:2px">
+        ${WTYPES.map(t=>`<option value="${t}" ${t===r.workType?'selected':''}>${t}</option>`).join('')}
+      </select></td>
+      <td contenteditable="true" class="ed" data-idx="${idx}" data-field="productCode">${escHtml(r.productCode)}</td>
+      <td contenteditable="true" class="ed" data-idx="${idx}" data-field="productName">${escHtml(r.productName)}</td>
+      <td contenteditable="true" class="ed" data-idx="${idx}" data-field="quantity">${escHtml(String(r.quantity))}</td>
+      <td contenteditable="true" class="ed" data-idx="${idx}" data-field="remark">${escHtml(r.remark)}</td>
+      <td class="text-sm" style="color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(r.sourceFile)}">${escHtml(r.sourceFile.substring(0,18)+'…')}</td>
+      <td><span class="del-row" onclick="deleteRow(${idx})" title="刪除此列">×</span></td>
+    </tr>`;
+  }).join('');
+
+  // 監聽 contenteditable 變更
+  tbody.querySelectorAll('.ed').forEach(td => {
+    td.addEventListener('blur', () => {
+      const idx   = +td.dataset.idx;
+      const field = td.dataset.field;
+      parsedRecords[idx][field] = td.textContent.trim();
+    });
+  });
+  // 監聽 select 變更
+  tbody.querySelectorAll('.ed-sel').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const idx   = +sel.dataset.idx;
+      const field = sel.dataset.field;
+      parsedRecords[idx][field] = sel.value;
+    });
+  });
+
+  document.getElementById('record-count').textContent = `共 ${records.length} 筆`;
+  updateSubmitCount();
+  refreshBatchDropdowns();
+}
+
+function renderParseErrors(errors) {
+  const el = document.getElementById('parse-errors');
+  if (!errors.length) { el.innerHTML=''; return; }
+  el.innerHTML = `<div class="warn-box">⚠️ 解析警告（不影響其他資料）：<ul style="margin-top:6px;padding-left:18px">${errors.map(e=>`<li>${escHtml(e)}</li>`).join('')}</ul></div>`;
+}
+
+function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function deleteRow(idx) {
+  parsedRecords.splice(idx, 1);
+  renderPreviewTable(parsedRecords);
+}
+
+function selectAll(checked) {
+  document.querySelectorAll('.row-chk').forEach(c => c.checked = checked);
+  document.getElementById('chk-all').checked = checked;
+  updateSubmitCount();
+}
+
+function deleteSelected() {
+  const chks = Array.from(document.querySelectorAll('.row-chk'));
+  const toDelete = chks.map((c,i) => c.checked ? i : -1).filter(i=>i>=0).reverse();
+  toDelete.forEach(i => parsedRecords.splice(i, 1));
+  renderPreviewTable(parsedRecords);
+}
+
+function updateSubmitCount() {
+  const chks   = Array.from(document.querySelectorAll('.row-chk'));
+  const checked = chks.filter(c=>c.checked).length;
+  const total   = parsedRecords.length;
+  const btn     = document.getElementById('submit-btn');
+  const span    = document.getElementById('submit-count');
+  if (btn) btn.textContent = `✅ 確認送出 ${checked||total} 筆`;
+  if (span) span.textContent = total > 0 ? `（共解析 ${total} 筆）` : '';
+}
+
+// 監聽 checkbox 變化更新送出數
+document.addEventListener('change', e => {
+  if (e.target.classList.contains('row-chk') || e.target.id==='chk-all') updateSubmitCount();
+});
+
+// ═══════════════════════════════════════════════════════════
+//  批次修改
+// ═══════════════════════════════════════════════════════════
+function refreshBatchDropdowns() {
+  const bp = document.getElementById('batch-person');
+  const bw = document.getElementById('batch-worktype');
+  if (!bp || !bw) return;
+  bp.innerHTML = '<option value="">人員（不變）</option>' + PEOPLE.map(p => `<option value="${p}">${p}</option>`).join('');
+  bw.innerHTML = '<option value="">作業類型（不變）</option>' + WTYPES.map(t => `<option value="${t}">${t}</option>`).join('');
+}
+
+function applyBatchEdit() {
+  const person   = document.getElementById('batch-person').value;
+  const workType = document.getElementById('batch-worktype').value;
+  if (!person && !workType) return;
+  const chks = Array.from(document.querySelectorAll('.row-chk'));
+  chks.forEach((chk, i) => {
+    if (!chk.checked) return;
+    if (person)   parsedRecords[i].person   = person;
+    if (workType) parsedRecords[i].workType = workType;
+  });
+  renderPreviewTable(parsedRecords);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  清單編輯
+// ═══════════════════════════════════════════════════════════
+function toggleListEditor() {
+  const el = document.getElementById('list-editor');
+  const opening = el.style.display === 'none';
+  if (opening) {
+    document.getElementById('people-textarea').value = PEOPLE.join('\n');
+    document.getElementById('wtype-textarea').value  = WTYPES.join('\n');
+  }
+  el.style.display = opening ? 'block' : 'none';
+}
+
+function applyListEdit() {
+  const newPeople = document.getElementById('people-textarea').value.split('\n').map(s => s.trim()).filter(Boolean);
+  const newWtypes = document.getElementById('wtype-textarea').value.split('\n').map(s => s.trim()).filter(Boolean);
+  if (!newPeople.length || !newWtypes.length) { alert('清單不能為空'); return; }
+  PEOPLE.splice(0, PEOPLE.length, ...newPeople);
+  WTYPES.splice(0, WTYPES.length,  ...newWtypes);
+  localStorage.setItem(LS_PEOPLE, JSON.stringify(PEOPLE));
+  localStorage.setItem(LS_WTYPES, JSON.stringify(WTYPES));
+  refreshBatchDropdowns();
+  if (parsedRecords.length) renderPreviewTable(parsedRecords);
+  const msg = document.getElementById('list-save-msg');
+  msg.textContent = '✓ 已套用';
+  setTimeout(() => msg.textContent = '', 2000);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  送出
+// ═══════════════════════════════════════════════════════════
+async function submitRecords() {
+  const apiUrl = GAS_URL;
+
+  // 只送有勾選的
+  const chks    = Array.from(document.querySelectorAll('.row-chk'));
+  const toSend  = parsedRecords.filter((_, i) => !chks[i] || chks[i].checked);
+  if (!toSend.length) { alert('沒有選取任何資料'); return; }
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = '送出中…';
+
+  // 轉為 Apps Script 期望格式
+  const payload = toSend.map(r => ({
+    date:        r.date,
+    person:      r.person,
+    workType:    r.workType,
+    productCode: r.productCode,
+    productName: r.productName,
+    quantity:    Number(r.quantity) || 0,
+    remark:      r.remark,
+  }));
+
+  // 依來源檔案分組筆數
+  const fileGroups = {};
+  toSend.forEach(r => {
+    fileGroups[r.sourceFile] = (fileGroups[r.sourceFile] || 0) + 1;
+  });
+  const fileStats = Object.entries(fileGroups).map(([name, count]) => ({ name, count }));
+
+  try {
+    // 使用 text/plain content-type 避免 CORS preflight
+    const res = await fetch(apiUrl, {
+      method:   'POST',
+      body:     JSON.stringify(payload),
+      redirect: 'follow',
+    });
+    const text = await res.text();
+    let result;
+    try { result = JSON.parse(text); } catch { result = { success: res.ok, count: toSend.length }; }
+
+    const ok = result.success;
+    showResult(ok ? toSend.length : 0, ok ? 0 : toSend.length, result.error || '', fileStats, ok);
+    document.getElementById('cors-warn').style.display = 'none';
+  } catch (err) {
+    // CORS or network error — show fallback
+    console.error(err);
+    document.getElementById('cors-warn').style.display = 'block';
+    showResult(0, toSend.length, err.message, fileStats, false);
+  }
+
+  // 失敗時才恢復按鈕（成功由 lockUI 接手）
+  if (document.getElementById('submit-btn').textContent === '送出中…') {
+    btn.disabled = false;
+    btn.textContent = `✅ 確認送出 ${toSend.length} 筆`;
+  }
+}
+
+function showResult(okCount, errCount, errMsg, fileStats, isOk) {
+  document.getElementById('res-ok').textContent  = okCount;
+  document.getElementById('res-err').textContent = errCount;
+  document.getElementById('res-detail').textContent = errMsg ? `錯誤：${errMsg}` : '';
+
+  const filesEl = document.getElementById('res-files');
+  if (fileStats && fileStats.length) {
+    const rows = fileStats.map(f => `
+      <tr>
+        <td style="padding:6px 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px" title="${escHtml(f.name)}">${escHtml(f.name)}</td>
+        <td style="padding:6px 10px;text-align:center">${f.count}</td>
+        <td style="padding:6px 10px">${isOk ? '<span class="status-ok">✓ 成功</span>' : '<span class="status-err">✗ 失敗</span>'}</td>
+      </tr>`).join('');
+    filesEl.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+        <thead><tr style="background:var(--blue-light)">
+          <th style="padding:6px 10px;text-align:left;font-weight:600">檔案名稱</th>
+          <th style="padding:6px 10px;width:60px;text-align:center;font-weight:600">筆數</th>
+          <th style="padding:6px 10px;width:80px;font-weight:600">狀態</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  } else {
+    filesEl.innerHTML = '';
+  }
+
+  document.getElementById('result-section').style.display = 'block';
+  document.getElementById('result-section').scrollIntoView({ behavior:'smooth' });
+  if (isOk) lockUI();
+}
+
+function lockUI() {
+  // 鎖定上傳區
+  const dz = document.getElementById('drop-zone');
+  dz.onclick = null; dz.ondragover = null; dz.ondrop = null;
+  dz.style.opacity = '.4'; dz.style.cursor = 'default';
+  document.getElementById('file-input').disabled = true;
+  // 鎖定解析與送出按鈕
+  document.getElementById('parse-btn').disabled  = true;
+  const sb = document.getElementById('submit-btn');
+  sb.disabled = true; sb.textContent = '✅ 已送出';
+}
+
+// ── 下載 JSON（備用方案）────────────────────────────────────
+function downloadJSON() {
+  const chks   = Array.from(document.querySelectorAll('.row-chk'));
+  const toSend = parsedRecords.filter((_,i) => !chks[i]||chks[i].checked);
+  const blob   = new Blob([JSON.stringify(toSend, null, 2)], { type:'application/json' });
+  const a      = document.createElement('a');
+  a.href       = URL.createObjectURL(blob);
+  a.download   = `records_${new Date().toISOString().substring(0,10)}.json`;
+  a.click();
+}
+
+function resetAll() {
+  clearFiles();
+  // 解除鎖定
+  const dz = document.getElementById('drop-zone');
+  dz.onclick    = () => document.getElementById('file-input').click();
+  dz.ondragover = onDragOver;
+  dz.ondrop     = onDrop;
+  dz.style.opacity = '1'; dz.style.cursor = 'pointer';
+  document.getElementById('file-input').disabled = false;
+  const sb = document.getElementById('submit-btn');
+  sb.disabled = false; sb.textContent = '✅ 確認送出';
+  document.getElementById('result-section').style.display = 'none';
+  window.scrollTo({ top:0, behavior:'smooth' });
+}
+</script>
+</body>
+</html>
