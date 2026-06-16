@@ -442,6 +442,7 @@
         <label>④ 細項<select id="rpt-r-breakdown" onchange="renderReport()">
           <option value="week">週別</option>
           <option value="day">日別</option>
+          <option value="month">月別</option>
         </select></label>
         <div id="r-filter-slot" style="display:contents"></div>
       </div>
@@ -901,6 +902,8 @@ function renderReport() {
   const data = getFilteredData(start, end);
   const block4 = breakdown === 'day'
     ? buildBlock4Weekly(data, start, end)
+    : breakdown === 'month'
+    ? buildBlock4ByMonth(data, start, end)
     : buildBlock4Monthly(data, start, end);
   body.innerHTML = buildBlock12(data) + buildBlock3(data) + block4;
 }
@@ -1088,6 +1091,60 @@ function buildBlock4Weekly(data, startDate, endDate) {
   }).join('') || noDataRow(colCount);
   return `<div class="rpt-block">
     <div class="rpt-title" onclick="toggleBlock(this)"><span class="toggle-arrow">▼</span>④ 品號品名彙總（含各日細項）<button class="export-btn" onclick="event.stopPropagation();exportBlock4()">⬇ 下載 .xlsx</button></div>
+    <div class="rpt-wrap"><table class="rpt">
+      <thead><tr><th class="sort" onclick="sortBlock4(0)">品號 ${si(0)}</th><th class="sort" onclick="sortBlock4(1)">品名 ${si(1)}</th><th class="sort" onclick="sortBlock4(2)">作業類型 ${si(2)}</th><th class="r sort" onclick="sortBlock4(3)">數量合計 ${si(3)}</th>${thCols}</tr></thead>
+      <tbody>${body}</tbody>
+    </table></div></div>`;
+}
+
+// ④ 月別細項（依日期範圍，每月一欄）
+function buildBlock4ByMonth(data, startDate, endDate) {
+  const sy = parseInt(startDate.substring(0,4)), sm = parseInt(startDate.substring(5,7));
+  const ey = parseInt(endDate.substring(0,4)),   em = parseInt(endDate.substring(5,7));
+  const multiYear = sy !== ey;
+  const months = [];
+  for (let y = sy, m = sm; y < ey || (y === ey && m <= em); ) {
+    const ym = `${y}-${String(m).padStart(2,'0')}`;
+    months.push({ ym, label: multiYear ? `${y}/${m}月` : `${m}月`, textLabel: multiYear ? `${y}/${m}月` : `${m}月` });
+    m++; if (m > 12) { m = 1; y++; }
+  }
+
+  const map = {};
+  data.forEach(r => {
+    const key = `${r.productCode}\0${r.productName}\0${r.workType}`;
+    if (!map[key]) {
+      map[key] = {productCode:r.productCode, productName:r.productName, workType:r.workType, total:0, byMonth:{}};
+      months.forEach(mo => map[key].byMonth[mo.ym] = 0);
+    }
+    map[key].total += r.qty;
+    const ym = r.date.substring(0, 7);
+    if (map[key].byMonth[ym] !== undefined) map[key].byMonth[ym] += r.qty;
+  });
+  const sc=_b4Sort.col, sa=_b4Sort.asc;
+  const rows = Object.values(map).sort((a,b)=>{
+    const va=sc===0?a.productCode:sc===1?a.productName:sc===2?a.workType:sc===3?a.total:(a.byMonth[months[sc-4]?.ym]||0);
+    const vb=sc===0?b.productCode:sc===1?b.productName:sc===2?b.workType:sc===3?b.total:(b.byMonth[months[sc-4]?.ym]||0);
+    return typeof va==='string'?(sa?va.localeCompare(vb):vb.localeCompare(va)):(sa?va-vb:vb-va);
+  });
+  _b4Cache = {
+    sheetName: '品號品名彙總',
+    start: startDate, end: endDate,
+    headers: ['品號','品名','作業類型','數量合計', ...months.map(mo=>mo.textLabel)],
+    rows: rows.map(row => [row.productCode, row.productName, row.workType, row.total,
+      ...months.map(mo => row.byMonth[mo.ym] || 0)])
+  };
+  const si=c=>'<span style="font-size:.78em;opacity:'+(sc===c?.9:.3)+'">'+( sc!==c?'⇅':sa?'↑':'↓')+'</span>';
+  const thCols = months.map((mo,i) => `<th class="r sort" onclick="sortBlock4(${i+4})">${mo.label} ${si(i+4)}</th>`).join('');
+  const colCount = 4 + months.length;
+  const body = rows.map(row => {
+    const mCells = months.map(mo => {
+      const v = row.byMonth[mo.ym];
+      return `<td class="r${v===0?' zero':''}">${v===0?'—':v.toLocaleString()}</td>`;
+    }).join('');
+    return `<tr><td>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td><td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>${mCells}</tr>`;
+  }).join('') || noDataRow(colCount);
+  return `<div class="rpt-block">
+    <div class="rpt-title" onclick="toggleBlock(this)"><span class="toggle-arrow">▼</span>④ 品號品名彙總（含各月細項）<button class="export-btn" onclick="event.stopPropagation();exportBlock4()">⬇ 下載 .xlsx</button></div>
     <div class="rpt-wrap"><table class="rpt">
       <thead><tr><th class="sort" onclick="sortBlock4(0)">品號 ${si(0)}</th><th class="sort" onclick="sortBlock4(1)">品名 ${si(1)}</th><th class="sort" onclick="sortBlock4(2)">作業類型 ${si(2)}</th><th class="r sort" onclick="sortBlock4(3)">數量合計 ${si(3)}</th>${thCols}</tr></thead>
       <tbody>${body}</tbody>
