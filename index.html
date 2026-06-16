@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>數量統計表 — 儀表板</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <script src="https://accounts.google.com/gsi/client" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -219,7 +220,7 @@
   }
   .login-left {
     flex: 1; min-height: 100vh;
-    background: linear-gradient(145deg, #1565C0 0%, #1976D2 55%, #2196F3 100%);
+    background: #1976D2;
     position: relative; overflow: hidden;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center; padding: 48px;
@@ -263,7 +264,7 @@
   }
   .logo-mark {
     width: 40px; height: 40px; border-radius: 10px;
-    background: linear-gradient(135deg, #1976D2, #2196F3);
+    background: #1976D2;
     box-shadow: 0 4px 12px rgba(25,118,210,.3);
   }
   .logo-text {
@@ -290,7 +291,7 @@
   /* login 原有樣式覆蓋 */
   #login-screen h1 { font-size: inherit; }
   #login-screen p { font-size: inherit; color: inherit; }
-  header { background: linear-gradient(135deg,#1976D2,#2196F3); box-shadow: 0 2px 12px rgba(25,118,210,.28); }
+  header { background: #1976D2; box-shadow: 0 2px 12px rgba(25,118,210,.28); }
   .tab-bar { border-bottom-color: #d1faf5; }
   .tab-bar button.active { color: #1976D2; border-bottom-color: #1976D2; }
   .tab-bar button:hover { color: #1976D2; }
@@ -314,7 +315,7 @@
   .kpi-card .value { color: #1976D2; }
   .chart-card { border-radius: 14px; border: 1px solid #E3F2FD; box-shadow: 0 2px 12px rgba(25,118,210,.07); }
   .detail-section { border-radius: 14px; box-shadow: 0 2px 12px rgba(25,118,210,.08); }
-  .detail-header { background: linear-gradient(135deg,#1976D2,#2196F3); cursor: pointer; user-select: none; }
+  .detail-header { background: #1976D2; cursor: pointer; user-select: none; }
   table.detail thead th { background: #E3F2FD; color: #1976D2; border-bottom-color: #90CAF9; }
   table.detail tbody tr:hover td { background: #E3F2FD; }
   table.detail tbody tr:nth-child(even) td { background: #F8FBFF; }
@@ -704,9 +705,9 @@ function initProductList() {
 function injectFilterControls(p) {
   const slot=document.getElementById(p+'-filter-slot'); if(!slot) return;
   slot.innerHTML=
-    mkListFilter(p,'person','\u{1F464}','人員')+
-    mkListFilter(p,'wtype','\u{1F4CB}','作業類型')+
-    mkListFilter(p,'itype','\u{1F3F7}️','品項類型')+
+    mkListFilter(p,'person','<i class="ti ti-user"></i>','人員')+
+    mkListFilter(p,'wtype','<i class="ti ti-list-check"></i>','作業類型')+
+    mkListFilter(p,'itype','<i class="ti ti-tag"></i>','品項類型')+
     mkProductFilter(p);
 }
 function mkListFilter(p,type,em,label){
@@ -723,10 +724,10 @@ function mkListFilter(p,type,em,label){
 function mkProductFilter(p){
   return '<div class="rpt-filter-wrap">'
     +'<button class="rpt-filter-btn" onclick="toggleFP(\''+p+'\',\'product\')">'
-    +'\u{1F4E6} 品項 <span class="filter-badge" id="'+p+'-product-badge">全部</span></button>'
+    +'<i class="ti ti-package"></i> 品項 <span class="filter-badge" id="'+p+'-product-badge">全部</span></button>'
     +'<div class="rpt-filter-panel" id="'+p+'-product-panel" style="display:none">'
     +'<div class="panel-search">'
-    +'<input type="text" id="'+p+'-product-search" placeholder="\u{1F50D} 搜尋品號/品名" oninput="onProductSearch(\''+p+'\',this.value)">'
+    +'<input type="text" id="'+p+'-product-search" placeholder="搜尋品號/品名" oninput="onProductSearch(\''+p+'\',this.value)">'
     +'<button class="reset-btn" onclick="resetProductFilter()">重設</button>'
     +'</div>'
     +'<div class="panel-header"><label class="panel-item">'

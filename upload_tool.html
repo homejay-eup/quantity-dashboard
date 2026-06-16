@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>數量統計表 — 上傳工具</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <style>
 :root {
   --blue-dark:  #1565C0;
@@ -11,7 +12,7 @@
   --blue-mid:   #2196F3;
   --blue-light: #BBDEFB;
   --blue-pale:  #E3F2FD;
-  --grad: linear-gradient(135deg, #64B5F6 0%, #2196F3 38%, #1565C0 100%);
+  --grad: #1976D2;
 
   --green: #2E7D32; --green-light: #E8F5E9;
   --red:   #C62828; --red-light:   #FFEBEE;
@@ -75,7 +76,7 @@ main { max-width: 1200px; margin: 24px auto; padding: 0 24px; display: flex; fle
   padding: 12px 20px; font-weight: 600; font-size: 13px;
   display: flex; align-items: center; gap: 8px; letter-spacing: .2px;
 }
-.card-head.green { background: linear-gradient(135deg, #66BB6A, #2E7D32); }
+.card-head.green { background: #2E7D32; }
 .card-head.gray  { background: var(--gray-600); }
 .card-body { padding: 20px; }
 
@@ -105,7 +106,7 @@ input[type=text]:focus, select:focus {
   filter: brightness(1.08); box-shadow: 0 4px 14px rgba(21,101,192,.45); transform: translateY(-1px);
 }
 .btn-success {
-  background: linear-gradient(135deg, #66BB6A, #2E7D32); color: var(--white);
+  background: #2E7D32; color: var(--white);
   box-shadow: 0 2px 8px rgba(46,125,50,.3);
 }
 .btn-success:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
@@ -228,7 +229,7 @@ hr { border: none; border-top: 1px solid var(--gray-100); margin: 14px 0; }
 
 <!-- ② 上傳 -->
 <div class="card">
-  <div class="card-head">📁 上傳檔案</div>
+  <div class="card-head"><i class="ti ti-folder"></i> 上傳檔案</div>
   <div class="card-body">
     <div id="drop-zone" onclick="document.getElementById('file-input').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
       <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#64B5F6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -242,7 +243,7 @@ hr { border: none; border-top: 1px solid var(--gray-100); margin: 14px 0; }
 
     <!-- 出貨表日期區間（有出貨表時顯示） -->
     <div id="shipping-date-panel">
-      <div class="panel-title">📅 出貨表資料日期區間（必填）</div>
+      <div class="panel-title"><i class="ti ti-calendar"></i> 出貨表資料日期區間（必填）</div>
       <p style="font-size:12px;color:var(--yellow);margin-bottom:8px">偵測到出貨表，請填入本批資料涵蓋的週次起迄日，系統將以「起日」作為每筆記錄的日期。</p>
       <div style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap">
         <div>
@@ -262,7 +263,7 @@ hr { border: none; border-top: 1px solid var(--gray-100); margin: 14px 0; }
     </div>
 
     <div class="mt12 btn-group">
-      <button class="btn btn-primary" id="parse-btn" onclick="parseAllFiles()" disabled>🔍 解析所有檔案</button>
+      <button class="btn btn-primary" id="parse-btn" onclick="parseAllFiles()" disabled><i class="ti ti-file-search"></i> 解析所有檔案</button>
       <button class="btn btn-sm btn-outline" onclick="clearFiles()">清除</button>
     </div>
   </div>
@@ -270,8 +271,8 @@ hr { border: none; border-top: 1px solid var(--gray-100); margin: 14px 0; }
 
 <!-- ③ 預覽 -->
 <div class="card" id="preview-section">
-  <div class="card-head">📋 預覽 &amp; 確認
-    <button class="btn btn-sm" style="margin-left:auto;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.35)" onclick="toggleListEditor()">⚙️ 編輯人員／作業類型清單</button>
+  <div class="card-head"><i class="ti ti-clipboard-list"></i> 預覽 &amp; 確認
+    <button class="btn btn-sm" style="margin-left:auto;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.35)" onclick="toggleListEditor()"><i class="ti ti-settings"></i> 編輯人員／作業類型清單</button>
   </div>
   <div class="card-body">
 
@@ -338,20 +339,20 @@ hr { border: none; border-top: 1px solid var(--gray-100); margin: 14px 0; }
 
     <hr>
     <div class="btn-group">
-      <button class="btn btn-success" id="submit-btn" onclick="submitRecords()">✅ 確認送出</button>
+      <button class="btn btn-success" id="submit-btn" onclick="submitRecords()"><i class="ti ti-send"></i> 確認送出</button>
       <span id="submit-count" class="text-sm"></span>
     </div>
     <div class="warn-box mt8" style="display:none" id="cors-warn">
-      ⚠️ 若送出後無回應，可能是 CORS 限制。請確認 Apps Script 已部署為「執行身分：我，存取：任何人」。
+      <i class="ti ti-alert-triangle"></i> 若送出後無回應，可能是 CORS 限制。請確認 Apps Script 已部署為「執行身分：我，存取：任何人」。
       或改用下方「下載 JSON」手動匯入。
-      <div class="mt8"><button class="btn btn-sm btn-primary" onclick="downloadJSON()">⬇ 下載 JSON</button></div>
+      <div class="mt8"><button class="btn btn-sm btn-primary" onclick="downloadJSON()"><i class="ti ti-download"></i> 下載 JSON</button></div>
     </div>
   </div>
 </div>
 
 <!-- ④ 結果 -->
 <div class="card" id="result-section">
-  <div class="card-head green">✅ 送出結果</div>
+  <div class="card-head green"><i class="ti ti-circle-check"></i> 送出結果</div>
   <div class="card-body">
     <div class="result-stat">
       <div class="stat-box stat-ok"><div class="num" id="res-ok">0</div><div class="lbl">成功送出</div></div>
@@ -359,7 +360,7 @@ hr { border: none; border-top: 1px solid var(--gray-100); margin: 14px 0; }
     </div>
     <div id="res-files" class="mt8"></div>
     <div id="res-detail" class="text-sm mt8"></div>
-    <button class="btn btn-primary mt12" onclick="resetAll()">🔄 繼續上傳新檔案</button>
+    <button class="btn btn-primary mt12" onclick="resetAll()"><i class="ti ti-refresh"></i> 繼續上傳新檔案</button>
   </div>
 </div>
 
@@ -462,7 +463,7 @@ function renderFileList() {
         </select>
       ` : `<span class="badge badge-${f.status==='ok'?'ok':f.status==='warn'?'warn':'err'}">${typeLabel(f.type)||'？'}</span>`}
       <span class="text-sm" style="max-width:260px;color:${f.status==='err'?'var(--red)':f.status==='warn'?'var(--yellow)':'var(--muted)'}">${f.msg}</span>
-      <button class="btn btn-sm" style="background:#eee;flex-shrink:0" onclick="removeFile(${idx})">✕</button>
+      <button class="btn btn-sm" style="background:#eee;flex-shrink:0" onclick="removeFile(${idx})"><i class="ti ti-x"></i></button>
     </div>
   `).join('');
 }
@@ -497,7 +498,7 @@ function clearFiles() {
   fi.disabled = false;
   fi.value = '';   // 重置，讓同名檔案可以再次觸發 onchange
   const sb = document.getElementById('submit-btn');
-  if (sb) { sb.disabled = false; sb.textContent = '✅ 確認送出'; }
+  if (sb) { sb.disabled = false; sb.innerHTML = '<i class="ti ti-send"></i> 確認送出'; }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -943,7 +944,7 @@ function renderPreviewTable(records) {
 function renderParseErrors(errors) {
   const el = document.getElementById('parse-errors');
   if (!errors.length) { el.innerHTML=''; return; }
-  el.innerHTML = `<div class="warn-box">⚠️ 解析警告（不影響其他資料）：<ul style="margin-top:6px;padding-left:18px">${errors.map(e=>`<li>${escHtml(e)}</li>`).join('')}</ul></div>`;
+  el.innerHTML = `<div class="warn-box"><i class="ti ti-alert-triangle"></i> 解析警告（不影響其他資料）：<ul style="margin-top:6px;padding-left:18px">${errors.map(e=>`<li>${escHtml(e)}</li>`).join('')}</ul></div>`;
 }
 
 function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -972,7 +973,7 @@ function updateSubmitCount() {
   const total   = parsedRecords.length;
   const btn     = document.getElementById('submit-btn');
   const span    = document.getElementById('submit-count');
-  if (btn) btn.textContent = `✅ 確認送出 ${checked||total} 筆`;
+  if (btn) btn.innerHTML = `<i class="ti ti-send"></i> 確認送出 ${checked||total} 筆`;
   if (span) span.textContent = total > 0 ? `（共解析 ${total} 筆）` : '';
 }
 
@@ -1046,7 +1047,7 @@ async function submitRecords() {
 
   const btn = document.getElementById('submit-btn');
   btn.disabled = true;
-  btn.textContent = '送出中…';
+  btn.innerHTML = '<i class="ti ti-loader"></i> 送出中…';
 
   // 轉為 Apps Script 期望格式
   const payload = toSend.map(r => ({
@@ -1088,9 +1089,9 @@ async function submitRecords() {
   }
 
   // 失敗時才恢復按鈕（成功由 lockUI 接手）
-  if (document.getElementById('submit-btn').textContent === '送出中…') {
+  if (document.getElementById('submit-btn').innerHTML.includes('送出中')) {
     btn.disabled = false;
-    btn.textContent = `✅ 確認送出 ${toSend.length} 筆`;
+    btn.innerHTML = `<i class="ti ti-send"></i> 確認送出 ${toSend.length} 筆`;
   }
 }
 
@@ -1134,7 +1135,7 @@ function lockUI() {
   // 鎖定解析與送出按鈕
   document.getElementById('parse-btn').disabled  = true;
   const sb = document.getElementById('submit-btn');
-  sb.disabled = true; sb.textContent = '✅ 已送出';
+  sb.disabled = true; sb.innerHTML = '<i class="ti ti-circle-check"></i> 已送出';
 }
 
 // ── 下載 JSON（備用方案）────────────────────────────────────
@@ -1158,7 +1159,7 @@ function resetAll() {
   dz.style.opacity = '1'; dz.style.cursor = 'pointer';
   document.getElementById('file-input').disabled = false;
   const sb = document.getElementById('submit-btn');
-  sb.disabled = false; sb.textContent = '✅ 確認送出';
+  sb.disabled = false; sb.innerHTML = '<i class="ti ti-send"></i> 確認送出';
   document.getElementById('result-section').style.display = 'none';
   window.scrollTo({ top:0, behavior:'smooth' });
 }
