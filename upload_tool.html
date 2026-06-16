@@ -5,125 +5,223 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>數量統計表 — 上傳工具</title>
 <style>
-:root{
-  --blue-dark:#1F4E79;--blue-mid:#2E75B6;--blue-light:#DAEEF3;
-  --green:#375623;--green-light:#E2EFDA;
-  --red:#C00000;--red-light:#FCE4D6;
-  --yellow:#7F6000;--yellow-light:#FFF2CC;
-  --gray:#595959;--bg:#F0F4F8;--card:#FFFFFF;
-  --border:#D0D7DE;--text:#24292F;--muted:#6E7781;
+:root {
+  --blue-dark:  #1565C0;
+  --blue:       #1976D2;
+  --blue-mid:   #2196F3;
+  --blue-light: #BBDEFB;
+  --blue-pale:  #E3F2FD;
+  --grad: linear-gradient(135deg, #64B5F6 0%, #2196F3 38%, #1565C0 100%);
+
+  --green: #2E7D32; --green-light: #E8F5E9;
+  --red:   #C62828; --red-light:   #FFEBEE;
+  --yellow:#F57F17; --yellow-light:#FFF8E1;
+
+  --gray-50:  #F5F7FA; --gray-100: #EEF0F4; --gray-200: #DDE1E9;
+  --gray-300: #C5CBD8; --gray-400: #9AA3B2; --gray-500: #6B7384;
+  --gray-600: #4A5264; --gray-700: #343A4D; --gray-800: #1F2535;
+  --white: #FFFFFF;
+
+  /* legacy aliases */
+  --bg: var(--gray-50); --card: var(--white);
+  --border: var(--gray-200); --text: var(--gray-800); --muted: var(--gray-400);
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.07), 0 2px 8px rgba(0,0,0,.05);
+  --shadow:    0 2px 6px rgba(0,0,0,.08), 0 6px 20px rgba(0,0,0,.07);
+  --radius: 14px; --radius-sm: 8px;
 }
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'微軟正黑體',Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
-a{color:var(--blue-mid)}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft JhengHei", "PingFang TC", sans-serif;
+  background: var(--gray-50); color: var(--gray-800); font-size: 14px; min-height: 100vh;
+}
+a { color: var(--blue-mid); }
 
 /* ── Header ── */
-header{background:var(--blue-dark);color:#fff;padding:16px 24px;display:flex;align-items:center;gap:12px}
-header h1{font-size:18px;font-weight:700}
-header p{font-size:12px;opacity:.75}
+header {
+  background: var(--white); border-bottom: 1px solid var(--gray-200); height: 62px;
+  padding: 0 28px; display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 200;
+  box-shadow: 0 1px 0 var(--gray-200), 0 2px 8px rgba(0,0,0,.04);
+}
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-icon {
+  width: 34px; height: 34px; background: var(--grad); border-radius: 9px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.logo-icon svg { width: 18px; height: 18px; }
+.logo-text { display: flex; flex-direction: column; line-height: 1.2; }
+.logo-name { font-size: 15px; font-weight: 700; color: var(--blue-dark); letter-spacing: .5px; }
+.logo-sub  { font-size: 11px; color: var(--gray-400); letter-spacing: .3px; }
+.header-desc { font-size: 12px; color: var(--gray-400); text-align: right; max-width: 560px; }
 
 /* ── Layout ── */
-main{max-width:1200px;margin:24px auto;padding:0 16px;display:flex;flex-direction:column;gap:16px}
+main { max-width: 1200px; margin: 24px auto; padding: 0 24px; display: flex; flex-direction: column; gap: 20px; }
 
 /* ── Card ── */
-.card{background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden}
-.card-head{background:var(--blue-dark);color:#fff;padding:10px 16px;font-weight:700;font-size:13px;display:flex;align-items:center;gap:8px}
-.card-head.green{background:var(--green)}
-.card-head.gray{background:var(--gray)}
-.card-body{padding:16px}
+.card {
+  background: var(--white); border: 1px solid var(--gray-200);
+  border-radius: var(--radius); overflow: hidden;
+  box-shadow: var(--shadow-sm); position: relative; transition: box-shadow .2s;
+}
+.card::before {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--grad); opacity: 0; transition: opacity .2s; z-index: 1;
+}
+.card:hover { box-shadow: var(--shadow); }
+.card:hover::before { opacity: 1; }
+.card-head {
+  background: var(--grad); color: var(--white);
+  padding: 12px 20px; font-weight: 600; font-size: 13px;
+  display: flex; align-items: center; gap: 8px; letter-spacing: .2px;
+}
+.card-head.green { background: linear-gradient(135deg, #66BB6A, #2E7D32); }
+.card-head.gray  { background: var(--gray-600); }
+.card-body { padding: 20px; }
 
 /* ── Form elements ── */
-label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px}
-input[type=text],select{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;font-family:inherit}
-input[type=text]:focus,select:focus{outline:2px solid var(--blue-mid);border-color:transparent}
+label { font-size: 12px; font-weight: 600; color: var(--gray-500); display: block; margin-bottom: 5px; letter-spacing: .3px; }
+input[type=text], select {
+  width: 100%; padding: 8px 12px;
+  border: 1.5px solid var(--gray-200); border-radius: var(--radius-sm);
+  font-size: 13px; font-family: inherit; color: var(--gray-800); background: var(--white); transition: border .15s;
+}
+input[type=text]:focus, select:focus {
+  outline: none; border-color: var(--blue-mid); box-shadow: 0 0 0 3px rgba(33,150,243,.12);
+}
 
 /* ── Buttons ── */
-.btn{padding:8px 18px;border:none;border-radius:4px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:600;transition:opacity .15s}
-.btn:disabled{opacity:.4;cursor:default}
-.btn-primary{background:var(--blue-mid);color:#fff}
-.btn-success{background:var(--green);color:#fff}
-.btn-danger{background:var(--red);color:#fff}
-.btn-sm{padding:4px 10px;font-size:12px;border-radius:3px}
-.btn:hover:not(:disabled){opacity:.85}
-.btn-group{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 18px; border: none; border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 600; font-family: inherit;
+  cursor: pointer; transition: all .18s; white-space: nowrap;
+}
+.btn:disabled { opacity: .4; cursor: default; }
+.btn-primary {
+  background: var(--grad); color: var(--white); box-shadow: 0 2px 8px rgba(21,101,192,.35);
+}
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.08); box-shadow: 0 4px 14px rgba(21,101,192,.45); transform: translateY(-1px);
+}
+.btn-success {
+  background: linear-gradient(135deg, #66BB6A, #2E7D32); color: var(--white);
+  box-shadow: 0 2px 8px rgba(46,125,50,.3);
+}
+.btn-success:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
+.btn-danger { background: var(--red); color: var(--white); }
+.btn-danger:hover:not(:disabled) { background: #B71C1C; transform: translateY(-1px); }
+.btn-sm { padding: 5px 12px; font-size: 12px; border-radius: 7px; }
+.btn-outline { background: var(--white); color: var(--gray-600); border: 1px solid var(--gray-200); box-shadow: var(--shadow-sm); }
+.btn-outline:hover:not(:disabled) { border-color: var(--blue-light); color: var(--blue); background: var(--blue-pale); }
+.btn-group { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 
 /* ── Drop zone ── */
-#drop-zone{border:2px dashed var(--blue-mid);border-radius:8px;padding:40px 20px;text-align:center;cursor:pointer;transition:all .2s;background:#F7FAFC}
-#drop-zone.drag-over{background:var(--blue-light);border-color:var(--blue-dark)}
-#drop-zone svg{display:block;margin:0 auto 12px}
-#drop-zone p{color:var(--muted);font-size:13px;margin-top:6px}
-#drop-zone strong{color:var(--blue-dark)}
+#drop-zone {
+  border: 2px dashed var(--gray-200); border-radius: var(--radius);
+  padding: 48px 20px; text-align: center; cursor: pointer; transition: all .2s; background: var(--gray-50);
+}
+#drop-zone:hover, #drop-zone.drag-over { background: var(--blue-pale); border-color: var(--blue-mid); }
+#drop-zone svg { display: block; margin: 0 auto 14px; }
+#drop-zone strong { font-size: 15px; color: var(--gray-700); font-weight: 600; }
+#drop-zone p { color: var(--gray-400); font-size: 13px; margin-top: 8px; }
 
 /* ── File list ── */
-#file-list{margin-top:12px;display:flex;flex-direction:column;gap:6px}
-.file-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:#FAFAFA}
-.file-item.ok{border-color:#70AD47}
-.file-item.warn{border-color:#FFC000;background:var(--yellow-light)}
-.file-item.err{border-color:var(--red);background:var(--red-light)}
-.file-name{flex:1;font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.badge{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;white-space:nowrap}
-.badge-ok{background:#E2EFDA;color:var(--green)}
-.badge-warn{background:var(--yellow-light);color:var(--yellow)}
-.badge-err{background:var(--red-light);color:var(--red)}
-.badge-blue{background:var(--blue-light);color:var(--blue-dark)}
+#file-list { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.file-item {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  border: 1px solid var(--gray-200); border-left: 3px solid transparent;
+  border-radius: var(--radius-sm); background: var(--white);
+}
+.file-item.ok   { border-left-color: #43A047; }
+.file-item.warn { border-left-color: #FB8C00; background: var(--yellow-light); }
+.file-item.err  { border-left-color: var(--red); background: var(--red-light); }
+.file-name { flex: 1; font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--gray-700); }
+.badge { padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.badge-ok   { background: var(--green-light); color: var(--green); }
+.badge-warn { background: var(--yellow-light); color: var(--yellow); }
+.badge-err  { background: var(--red-light);   color: var(--red); }
+.badge-blue { background: var(--blue-pale);   color: var(--blue-dark); }
 
 /* ── Progress ── */
-#progress-wrap{display:none;padding:12px 0}
-#progress-bar-outer{height:6px;background:#E0E0E0;border-radius:3px;overflow:hidden}
-#progress-bar{height:100%;background:var(--blue-mid);width:0%;transition:width .2s}
-#progress-text{font-size:12px;color:var(--muted);margin-top:6px}
+#progress-wrap { display: none; padding: 14px 0; }
+#progress-bar-outer { height: 5px; background: var(--gray-100); border-radius: 3px; overflow: hidden; }
+#progress-bar { height: 100%; background: var(--grad); width: 0%; transition: width .2s; }
+#progress-text { font-size: 12px; color: var(--gray-400); margin-top: 7px; }
 
 /* ── Preview table ── */
-#preview-section{display:none}
-.tbl-wrap{overflow-x:auto;max-height:480px;overflow-y:auto}
-table.preview{border-collapse:collapse;width:100%;font-size:12px}
-table.preview th{background:var(--blue-dark);color:#fff;padding:8px 10px;text-align:left;position:sticky;top:0;z-index:1;white-space:nowrap}
-table.preview td{padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
-table.preview tr:nth-child(even) td{background:#F8FAFB}
-table.preview tr.deleted td{opacity:.3;text-decoration:line-through}
-table.preview td[contenteditable=true]{background:#FFFDE7;outline:none}
-table.preview td[contenteditable=true]:focus{background:#FFF9C4;box-shadow:inset 0 0 0 2px var(--blue-mid)}
-.del-row{color:var(--red);cursor:pointer;font-size:16px;line-height:1;padding:0 4px}
-.del-row:hover{opacity:.7}
+#preview-section { display: none; }
+.tbl-wrap { overflow-x: auto; max-height: 480px; overflow-y: auto; }
+table.preview { border-collapse: collapse; width: 100%; font-size: 12px; }
+table.preview th {
+  background: var(--blue-dark); color: var(--white);
+  padding: 9px 12px; text-align: left; position: sticky; top: 0; z-index: 1;
+  white-space: nowrap; font-weight: 600;
+}
+table.preview td { padding: 7px 12px; border-bottom: 1px solid var(--gray-100); vertical-align: middle; }
+table.preview tr:nth-child(even) td { background: var(--gray-50); }
+table.preview tr:hover td { background: var(--blue-pale); }
+table.preview tr.deleted td { opacity: .3; text-decoration: line-through; }
+table.preview td[contenteditable=true] { background: #FFFDE7; outline: none; cursor: text; }
+table.preview td[contenteditable=true]:focus { background: #FFF9C4; box-shadow: inset 0 0 0 2px var(--blue-mid); }
+.del-row { color: var(--gray-300); cursor: pointer; font-size: 18px; line-height: 1; padding: 0 4px; transition: color .15s; }
+.del-row:hover { color: var(--red); }
 
-/* ── Status badge ── */
-.status-ok{color:var(--green);font-weight:700}
-.status-warn{color:var(--yellow)}
-.status-err{color:var(--red)}
+/* ── Status ── */
+.status-ok   { color: var(--green); font-weight: 700; }
+.status-warn { color: var(--yellow); }
+.status-err  { color: var(--red); }
 
 /* ── Results ── */
-#result-section{display:none}
-.result-stat{display:flex;gap:24px;flex-wrap:wrap;padding:12px 0}
-.stat-box{flex:1;min-width:120px;border-radius:6px;padding:16px;text-align:center}
-.stat-box .num{font-size:32px;font-weight:700;line-height:1}
-.stat-box .lbl{font-size:12px;margin-top:4px;opacity:.8}
-.stat-ok{background:var(--green-light);color:var(--green)}
-.stat-err{background:var(--red-light);color:var(--red)}
-.stat-skip{background:var(--yellow-light);color:var(--yellow)}
+#result-section { display: none; }
+.result-stat { display: flex; gap: 20px; flex-wrap: wrap; padding: 12px 0; }
+.stat-box { flex: 1; min-width: 120px; border-radius: var(--radius-sm); padding: 20px; text-align: center; }
+.stat-box .num { font-size: 36px; font-weight: 700; line-height: 1; }
+.stat-box .lbl { font-size: 12px; margin-top: 6px; opacity: .8; }
+.stat-ok   { background: var(--green-light); color: var(--green); }
+.stat-err  { background: var(--red-light);   color: var(--red); }
+.stat-skip { background: var(--yellow-light); color: var(--yellow); }
 
 /* ── Warning box ── */
-.warn-box{background:var(--yellow-light);border-left:4px solid #FFC000;padding:10px 14px;border-radius:0 4px 4px 0;font-size:13px;color:var(--yellow);margin-top:8px}
+.warn-box {
+  background: var(--yellow-light); border-left: 3px solid #FB8C00;
+  padding: 10px 14px; border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-size: 13px; color: var(--yellow); margin-top: 10px;
+}
 
 /* ── Shipping date panel ── */
-#shipping-date-panel{display:none;background:var(--yellow-light);border:1px solid #FFC000;border-radius:6px;padding:12px 16px;margin-top:12px}
-#shipping-date-panel .panel-title{font-weight:700;font-size:13px;color:var(--yellow);margin-bottom:8px}
-#shipping-date-panel input[type=date]{width:auto;min-width:150px}
+#shipping-date-panel {
+  display: none; background: var(--yellow-light);
+  border: 1px solid #FB8C00; border-radius: var(--radius-sm); padding: 14px 18px; margin-top: 14px;
+}
+#shipping-date-panel .panel-title { font-weight: 700; font-size: 13px; color: var(--yellow); margin-bottom: 8px; }
+#shipping-date-panel input[type=date] { width: auto; min-width: 150px; }
 
 /* ── Util ── */
-.row2{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
-.row2>*{flex:1;min-width:200px}
-.mt8{margin-top:8px}.mt12{margin-top:12px}.mt16{margin-top:16px}
-.text-sm{font-size:12px;color:var(--muted)}
-hr{border:none;border-top:1px solid var(--border);margin:12px 0}
+.row2 { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.row2 > * { flex: 1; min-width: 200px; }
+.mt8  { margin-top: 8px; }
+.mt12 { margin-top: 12px; }
+.mt16 { margin-top: 16px; }
+.text-sm { font-size: 12px; color: var(--gray-400); }
+hr { border: none; border-top: 1px solid var(--gray-100); margin: 14px 0; }
 </style>
 </head>
 <body>
 
 <header>
-  <div>
-    <h1>📤 數量統計表 — 上傳工具</h1>
-    <p>支援：成品檢驗日報表(.docx)、維修/移交/進貨/出貨/送審(.xlsx/.xls)　　⚠ .doc 格式需先另存為 .docx</p>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+    </div>
+    <div class="logo-text">
+      <span class="logo-name">數量統計表</span>
+      <span class="logo-sub">上傳工具</span>
+    </div>
   </div>
+  <p class="header-desc">支援：成品(.docx) · 維修/移交/進貨/出貨/送審(.xlsx/.xls)　⚠ .doc 需先另存為 .docx</p>
 </header>
 
 <main>
@@ -133,7 +231,7 @@ hr{border:none;border-top:1px solid var(--border);margin:12px 0}
   <div class="card-head">📁 上傳檔案</div>
   <div class="card-body">
     <div id="drop-zone" onclick="document.getElementById('file-input').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
-      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2E75B6" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#64B5F6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       <strong>拖曳檔案到此，或點擊選擇</strong>
       <p>支援同時上傳多個不同類型的檔案</p>
       <p style="margin-top:4px;font-size:11px">.docx &nbsp;.xlsx &nbsp;.xls　（⚠ .doc 不支援，請先另存為 .docx）</p>
@@ -165,7 +263,7 @@ hr{border:none;border-top:1px solid var(--border);margin:12px 0}
 
     <div class="mt12 btn-group">
       <button class="btn btn-primary" id="parse-btn" onclick="parseAllFiles()" disabled>🔍 解析所有檔案</button>
-      <button class="btn btn-sm" style="background:#eee" onclick="clearFiles()">清除</button>
+      <button class="btn btn-sm btn-outline" onclick="clearFiles()">清除</button>
     </div>
   </div>
 </div>
@@ -173,12 +271,12 @@ hr{border:none;border-top:1px solid var(--border);margin:12px 0}
 <!-- ③ 預覽 -->
 <div class="card" id="preview-section">
   <div class="card-head">📋 預覽 &amp; 確認
-    <button class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#fff;margin-left:auto" onclick="toggleListEditor()">⚙️ 編輯人員／作業類型清單</button>
+    <button class="btn btn-sm" style="margin-left:auto;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.35)" onclick="toggleListEditor()">⚙️ 編輯人員／作業類型清單</button>
   </div>
   <div class="card-body">
 
     <!-- 清單編輯面板 -->
-    <div id="list-editor" style="display:none;background:#F7FAFC;border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:12px">
+    <div id="list-editor" style="display:none;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:14px;margin-bottom:14px">
       <div style="display:flex;gap:16px;flex-wrap:wrap">
         <div style="flex:1;min-width:180px">
           <label>人員清單（每行一個）</label>
@@ -198,14 +296,14 @@ hr{border:none;border-top:1px solid var(--border);margin:12px 0}
     <!-- 工具列 -->
     <div class="btn-group" style="margin-bottom:8px">
       <span id="record-count" class="badge badge-blue"></span>
-      <button class="btn btn-sm" style="background:#eee" onclick="selectAll(true)">全選</button>
-      <button class="btn btn-sm" style="background:#eee" onclick="selectAll(false)">全不選</button>
+      <button class="btn btn-sm btn-outline" onclick="selectAll(true)">全選</button>
+      <button class="btn btn-sm btn-outline" onclick="selectAll(false)">全不選</button>
       <button class="btn btn-sm btn-danger" onclick="deleteSelected()">刪除選取列</button>
       <span class="text-sm" style="margin-left:auto">▶ 黃色底格可直接點擊編輯</span>
     </div>
 
     <!-- 批次修改列 -->
-    <div class="btn-group" style="margin-bottom:10px;padding:8px;background:#F7FAFC;border:1px solid var(--border);border-radius:6px">
+    <div class="btn-group" style="margin-bottom:12px;padding:10px 14px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:var(--radius-sm)">
       <span style="font-size:12px;color:var(--muted);white-space:nowrap">批次修改選取列：</span>
       <select id="batch-person" style="font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:4px">
         <option value="">人員（不變）</option>
