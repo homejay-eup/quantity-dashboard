@@ -1235,7 +1235,7 @@ function buildGroupedRows(rows, subCount, getSubVal) {
     const collapsed   = _b4SubtotalOnly ? !isException : isException;
     const arrow = collapsed ? '▶' : '▼';
     const subTds = gSubs.map(v => `<td class="r">${v === 0 ? '—' : v.toLocaleString()}</td>`).join('');
-    html += `<tr class="rpt-group-row" onclick="toggleB4Group(${JSON.stringify(gk)})">
+    html += `<tr class="rpt-group-row" data-gk="${escAttr(gk)}" onclick="toggleB4Group(this.dataset.gk)">
       <td colspan="3"><span class="group-toggle">${arrow}</span>${esc(gk)} <span style="font-weight:normal;font-size:.82em;color:#555">（${gCount} 項）</span></td>
       <td class="r">${gTotal.toLocaleString()}</td>${subTds}</tr>`;
     if (!collapsed) {
