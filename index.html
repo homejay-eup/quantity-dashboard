@@ -1034,7 +1034,7 @@ function buildBlock4Monthly(data, startDate, endDate) {
   data.forEach(r => {
     const key = `${r.productCode}\0${r.productName}\0${r.workType}`;
     if (!map[key]) {
-      map[key] = {productCode:r.productCode, productName:r.productName, workType:r.workType, total:0, byWeek:{}};
+      map[key] = {productCode:r.productCode, productName:r.productName, workType:r.workType, itemType:r.itemType||'', total:0, byWeek:{}};
       weeks.forEach((_,i) => map[key].byWeek[i] = 0);
     }
     map[key].total += r.qty;
@@ -1084,7 +1084,7 @@ function buildBlock4Weekly(data, startDate, endDate) {
   data.forEach(r => {
     const key = `${r.productCode}\0${r.productName}\0${r.workType}`;
     if (!map[key]) {
-      map[key] = {productCode:r.productCode, productName:r.productName, workType:r.workType, total:0, byDate:{}};
+      map[key] = {productCode:r.productCode, productName:r.productName, workType:r.workType, itemType:r.itemType||'', total:0, byDate:{}};
       dates.forEach(d => map[key].byDate[d] = 0);
     }
     map[key].total += r.qty;
@@ -1140,7 +1140,7 @@ function buildBlock4ByMonth(data, startDate, endDate) {
   data.forEach(r => {
     const key = `${r.productCode}\0${r.productName}\0${r.workType}`;
     if (!map[key]) {
-      map[key] = {productCode:r.productCode, productName:r.productName, workType:r.workType, total:0, byMonth:{}};
+      map[key] = {productCode:r.productCode, productName:r.productName, workType:r.workType, itemType:r.itemType||'', total:0, byMonth:{}};
       months.forEach(mo => map[key].byMonth[mo.ym] = 0);
     }
     map[key].total += r.qty;
