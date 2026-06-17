@@ -488,7 +488,7 @@ const COLORS_6  = ['#4285f4','#34a853','#fbbc04','#ea4335','#9c27b0','#ff6d00'];
 let allData = [];
 let charts = {};
 let _b4Cache = null; // { headers, rows, start, end, sheetName }
-let _b4Sort  = { col: 3, asc: false }; // default: 數量合計 desc
+let _b4Sort  = { col: 4, asc: false }; // default: 數量合計 desc
 let _b4Group = 'none'; // 'none' | 'workType' | 'itemType'
 let _b4SubtotalOnly = false;
 let _b4CollapsedGroups = new Set();
@@ -1009,7 +1009,7 @@ function renderReport() {
     : breakdown === 'month'
     ? buildBlock4ByMonth(data, start, end)
     : buildBlock4Monthly(data, start, end);
-  body.innerHTML = buildBlock3(data) + block4;
+  body.innerHTML = block4;
 }
 
 // ① ② 並排
@@ -1113,9 +1113,9 @@ function buildBlock4Monthly(data, startDate, endDate) {
   const weeks = getWorkWeeksInRange(startDate, endDate);
   const map = {};
   data.forEach(r => {
-    const key = `${r.productCode}\0${r.productName}\0${r.workType}`;
+    const key = `${r.productCode}\0${r.productName}\0${r.workType}\0${r.person}`;
     if (!map[key]) {
-      map[key] = {productCode:r.productCode, productName:r.productName, workType:r.workType, itemType:r.itemType||'', total:0, byWeek:{}};
+      map[key] = {productCode:r.productCode, productName:r.productName, workType:r.workType, itemType:r.itemType||'', person:r.person||'', total:0, byWeek:{}};
       weeks.forEach((_,i) => map[key].byWeek[i] = 0);
     }
     map[key].total += r.qty;
@@ -1123,21 +1123,21 @@ function buildBlock4Monthly(data, startDate, endDate) {
   });
   const sc=_b4Sort.col, sa=_b4Sort.asc;
   const rows = Object.values(map).sort((a,b)=>{
-    const va=sc===0?a.productCode:sc===1?a.productName:sc===2?a.workType:sc===3?a.total:(a.byWeek[sc-4]||0);
-    const vb=sc===0?b.productCode:sc===1?b.productName:sc===2?b.workType:sc===3?b.total:(b.byWeek[sc-4]||0);
+    const va=sc===0?a.productCode:sc===1?a.productName:sc===2?a.workType:sc===3?a.person:sc===4?a.total:(a.byWeek[sc-5]||0);
+    const vb=sc===0?b.productCode:sc===1?b.productName:sc===2?b.workType:sc===3?b.person:sc===4?b.total:(b.byWeek[sc-5]||0);
     return typeof va==='string'?(sa?va.localeCompare(vb):vb.localeCompare(va)):(sa?va-vb:vb-va);
   });
   // 快取供匯出用
   _b4Cache = {
     sheetName: '品號品名彙總',
     start: startDate, end: endDate,
-    headers: ['品號','品名','作業類型','數量合計', ...weeks.map(wk=>wk.textLabel)],
-    rows: rows.map(row => [row.productCode, row.productName, row.workType, row.total,
+    headers: ['品號','品名','作業類型','人員','數量合計', ...weeks.map(wk=>wk.textLabel)],
+    rows: rows.map(row => [row.productCode, row.productName, row.workType, row.person, row.total,
       ...weeks.map((_,i) => row.byWeek[i] || 0)])
   };
   const si=c=>'<span style="font-size:.78em;opacity:'+(sc===c?.9:.3)+'">'+( sc!==c?'⇅':sa?'↑':'↓')+'</span>';
-  const thCols = weeks.map((wk,i) => `<th class="r sort" onclick="sortBlock4(${i+4})">${wk.label} ${si(i+4)}</th>`).join('');
-  const colCount = 4 + weeks.length;
+  const thCols = weeks.map((wk,i) => `<th class="r sort" onclick="sortBlock4(${i+5})">${wk.label} ${si(i+5)}</th>`).join('');
+  const colCount = 5 + weeks.length;
   const body = _b4Group !== 'none'
     ? buildGroupedRows(rows, weeks.length, (row, i) => row.byWeek[i] || 0)
     : (rows.map(row => {
@@ -1145,12 +1145,12 @@ function buildBlock4Monthly(data, startDate, endDate) {
           const v = row.byWeek[i];
           return `<td class="r${v===0?' zero':''}">${v===0?'—':v.toLocaleString()}</td>`;
         }).join('');
-        return `<tr><td>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td><td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>${wCells}</tr>`;
+        return `<tr><td>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td><td>${esc(row.person)}</td><td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>${wCells}</tr>`;
       }).join('') || noDataRow(colCount));
   return `<div class="rpt-block">
     <div class="rpt-title" onclick="toggleBlock(this)"><span class="toggle-arrow">▼</span>④ 品號品名彙總（含各週細項）<button class="export-btn" onclick="event.stopPropagation();exportBlock4()">⬇ 下載 .xlsx</button></div>
     <div class="rpt-wrap">${buildB4Settings()}<table class="rpt">
-      <thead><tr><th class="sort" onclick="sortBlock4(0)">品號 ${si(0)}</th><th class="sort" onclick="sortBlock4(1)">品名 ${si(1)}</th><th class="sort" onclick="sortBlock4(2)">作業類型 ${si(2)}</th><th class="r sort" onclick="sortBlock4(3)">數量合計 ${si(3)}</th>${thCols}</tr></thead>
+      <thead><tr><th class="sort" onclick="sortBlock4(0)">品號 ${si(0)}</th><th class="sort" onclick="sortBlock4(1)">品名 ${si(1)}</th><th class="sort" onclick="sortBlock4(2)">作業類型 ${si(2)}</th><th class="sort" onclick="sortBlock4(3)">人員 ${si(3)}</th><th class="r sort" onclick="sortBlock4(4)">數量合計 ${si(4)}</th>${thCols}</tr></thead>
       <tbody>${body}</tbody>
     </table></div></div>`;
 }
@@ -1163,9 +1163,9 @@ function buildBlock4Weekly(data, startDate, endDate) {
 
   const map = {};
   data.forEach(r => {
-    const key = `${r.productCode}\0${r.productName}\0${r.workType}`;
+    const key = `${r.productCode}\0${r.productName}\0${r.workType}\0${r.person}`;
     if (!map[key]) {
-      map[key] = {productCode:r.productCode, productName:r.productName, workType:r.workType, itemType:r.itemType||'', total:0, byDate:{}};
+      map[key] = {productCode:r.productCode, productName:r.productName, workType:r.workType, itemType:r.itemType||'', person:r.person||'', total:0, byDate:{}};
       dates.forEach(d => map[key].byDate[d] = 0);
     }
     map[key].total += r.qty;
@@ -1173,21 +1173,21 @@ function buildBlock4Weekly(data, startDate, endDate) {
   });
   const sc=_b4Sort.col, sa=_b4Sort.asc;
   const rows = Object.values(map).sort((a,b)=>{
-    const va=sc===0?a.productCode:sc===1?a.productName:sc===2?a.workType:sc===3?a.total:(a.byDate[dates[sc-4]]||0);
-    const vb=sc===0?b.productCode:sc===1?b.productName:sc===2?b.workType:sc===3?b.total:(b.byDate[dates[sc-4]]||0);
+    const va=sc===0?a.productCode:sc===1?a.productName:sc===2?a.workType:sc===3?a.person:sc===4?a.total:(a.byDate[dates[sc-5]]||0);
+    const vb=sc===0?b.productCode:sc===1?b.productName:sc===2?b.workType:sc===3?b.person:sc===4?b.total:(b.byDate[dates[sc-5]]||0);
     return typeof va==='string'?(sa?va.localeCompare(vb):vb.localeCompare(va)):(sa?va-vb:vb-va);
   });
   // 快取供匯出用
   _b4Cache = {
     sheetName: '品號品名彙總',
     start: startDate, end: endDate,
-    headers: ['品號','品名','作業類型','數量合計', ...dates.map(d=>dateLabel(d))],
-    rows: rows.map(row => [row.productCode, row.productName, row.workType, row.total,
+    headers: ['品號','品名','作業類型','人員','數量合計', ...dates.map(d=>dateLabel(d))],
+    rows: rows.map(row => [row.productCode, row.productName, row.workType, row.person, row.total,
       ...dates.map(d => row.byDate[d] || 0)])
   };
   const si=c=>'<span style="font-size:.78em;opacity:'+(sc===c?.9:.3)+'">'+( sc!==c?'⇅':sa?'↑':'↓')+'</span>';
-  const thCols = dates.map((d,i) => `<th class="r sort" onclick="sortBlock4(${i+4})">${dateLabel(d)} ${si(i+4)}</th>`).join('');
-  const colCount = 4 + dates.length;
+  const thCols = dates.map((d,i) => `<th class="r sort" onclick="sortBlock4(${i+5})">${dateLabel(d)} ${si(i+5)}</th>`).join('');
+  const colCount = 5 + dates.length;
   const body = _b4Group !== 'none'
     ? buildGroupedRows(rows, dates.length, (row, i) => row.byDate[dates[i]] || 0)
     : (rows.map(row => {
@@ -1195,12 +1195,12 @@ function buildBlock4Weekly(data, startDate, endDate) {
           const v = row.byDate[d];
           return `<td class="r${v===0?' zero':''}">${v===0?'—':v.toLocaleString()}</td>`;
         }).join('');
-        return `<tr><td>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td><td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>${dCells}</tr>`;
+        return `<tr><td>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td><td>${esc(row.person)}</td><td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>${dCells}</tr>`;
       }).join('') || noDataRow(colCount));
   return `<div class="rpt-block">
     <div class="rpt-title" onclick="toggleBlock(this)"><span class="toggle-arrow">▼</span>④ 品號品名彙總（含各日細項）<button class="export-btn" onclick="event.stopPropagation();exportBlock4()">⬇ 下載 .xlsx</button></div>
     <div class="rpt-wrap">${buildB4Settings()}<table class="rpt">
-      <thead><tr><th class="sort" onclick="sortBlock4(0)">品號 ${si(0)}</th><th class="sort" onclick="sortBlock4(1)">品名 ${si(1)}</th><th class="sort" onclick="sortBlock4(2)">作業類型 ${si(2)}</th><th class="r sort" onclick="sortBlock4(3)">數量合計 ${si(3)}</th>${thCols}</tr></thead>
+      <thead><tr><th class="sort" onclick="sortBlock4(0)">品號 ${si(0)}</th><th class="sort" onclick="sortBlock4(1)">品名 ${si(1)}</th><th class="sort" onclick="sortBlock4(2)">作業類型 ${si(2)}</th><th class="sort" onclick="sortBlock4(3)">人員 ${si(3)}</th><th class="r sort" onclick="sortBlock4(4)">數量合計 ${si(4)}</th>${thCols}</tr></thead>
       <tbody>${body}</tbody>
     </table></div></div>`;
 }
@@ -1219,9 +1219,9 @@ function buildBlock4ByMonth(data, startDate, endDate) {
 
   const map = {};
   data.forEach(r => {
-    const key = `${r.productCode}\0${r.productName}\0${r.workType}`;
+    const key = `${r.productCode}\0${r.productName}\0${r.workType}\0${r.person}`;
     if (!map[key]) {
-      map[key] = {productCode:r.productCode, productName:r.productName, workType:r.workType, itemType:r.itemType||'', total:0, byMonth:{}};
+      map[key] = {productCode:r.productCode, productName:r.productName, workType:r.workType, itemType:r.itemType||'', person:r.person||'', total:0, byMonth:{}};
       months.forEach(mo => map[key].byMonth[mo.ym] = 0);
     }
     map[key].total += r.qty;
@@ -1230,20 +1230,20 @@ function buildBlock4ByMonth(data, startDate, endDate) {
   });
   const sc=_b4Sort.col, sa=_b4Sort.asc;
   const rows = Object.values(map).sort((a,b)=>{
-    const va=sc===0?a.productCode:sc===1?a.productName:sc===2?a.workType:sc===3?a.total:(a.byMonth[months[sc-4]?.ym]||0);
-    const vb=sc===0?b.productCode:sc===1?b.productName:sc===2?b.workType:sc===3?b.total:(b.byMonth[months[sc-4]?.ym]||0);
+    const va=sc===0?a.productCode:sc===1?a.productName:sc===2?a.workType:sc===3?a.person:sc===4?a.total:(a.byMonth[months[sc-5]?.ym]||0);
+    const vb=sc===0?b.productCode:sc===1?b.productName:sc===2?b.workType:sc===3?b.person:sc===4?b.total:(b.byMonth[months[sc-5]?.ym]||0);
     return typeof va==='string'?(sa?va.localeCompare(vb):vb.localeCompare(va)):(sa?va-vb:vb-va);
   });
   _b4Cache = {
     sheetName: '品號品名彙總',
     start: startDate, end: endDate,
-    headers: ['品號','品名','作業類型','數量合計', ...months.map(mo=>mo.textLabel)],
-    rows: rows.map(row => [row.productCode, row.productName, row.workType, row.total,
+    headers: ['品號','品名','作業類型','人員','數量合計', ...months.map(mo=>mo.textLabel)],
+    rows: rows.map(row => [row.productCode, row.productName, row.workType, row.person, row.total,
       ...months.map(mo => row.byMonth[mo.ym] || 0)])
   };
   const si=c=>'<span style="font-size:.78em;opacity:'+(sc===c?.9:.3)+'">'+( sc!==c?'⇅':sa?'↑':'↓')+'</span>';
-  const thCols = months.map((mo,i) => `<th class="r sort" onclick="sortBlock4(${i+4})">${mo.label} ${si(i+4)}</th>`).join('');
-  const colCount = 4 + months.length;
+  const thCols = months.map((mo,i) => `<th class="r sort" onclick="sortBlock4(${i+5})">${mo.label} ${si(i+5)}</th>`).join('');
+  const colCount = 5 + months.length;
   const body = _b4Group !== 'none'
     ? buildGroupedRows(rows, months.length, (row, i) => row.byMonth[months[i].ym] || 0)
     : (rows.map(row => {
@@ -1251,12 +1251,12 @@ function buildBlock4ByMonth(data, startDate, endDate) {
           const v = row.byMonth[mo.ym];
           return `<td class="r${v===0?' zero':''}">${v===0?'—':v.toLocaleString()}</td>`;
         }).join('');
-        return `<tr><td>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td><td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>${mCells}</tr>`;
+        return `<tr><td>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td><td>${esc(row.person)}</td><td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>${mCells}</tr>`;
       }).join('') || noDataRow(colCount));
   return `<div class="rpt-block">
     <div class="rpt-title" onclick="toggleBlock(this)"><span class="toggle-arrow">▼</span>④ 品號品名彙總（含各月細項）<button class="export-btn" onclick="event.stopPropagation();exportBlock4()">⬇ 下載 .xlsx</button></div>
     <div class="rpt-wrap">${buildB4Settings()}<table class="rpt">
-      <thead><tr><th class="sort" onclick="sortBlock4(0)">品號 ${si(0)}</th><th class="sort" onclick="sortBlock4(1)">品名 ${si(1)}</th><th class="sort" onclick="sortBlock4(2)">作業類型 ${si(2)}</th><th class="r sort" onclick="sortBlock4(3)">數量合計 ${si(3)}</th>${thCols}</tr></thead>
+      <thead><tr><th class="sort" onclick="sortBlock4(0)">品號 ${si(0)}</th><th class="sort" onclick="sortBlock4(1)">品名 ${si(1)}</th><th class="sort" onclick="sortBlock4(2)">作業類型 ${si(2)}</th><th class="sort" onclick="sortBlock4(3)">人員 ${si(3)}</th><th class="r sort" onclick="sortBlock4(4)">數量合計 ${si(4)}</th>${thCols}</tr></thead>
       <tbody>${body}</tbody>
     </table></div></div>`;
 }
@@ -1291,6 +1291,7 @@ function buildB4Settings() {
   return `<div class="b4-settings">
     <span class="b4-settings-label">折疊依據：</span>
     <label class="b4-radio-label"><input type="radio" name="b4g" value="none" onchange="setB4Group(this.value)"${none?' checked':''}> 無</label>
+    <label class="b4-radio-label"><input type="radio" name="b4g" value="person" onchange="setB4Group(this.value)"${_b4Group==='person'?' checked':''}> 人員</label>
     <label class="b4-radio-label"><input type="radio" name="b4g" value="workType" onchange="setB4Group(this.value)"${wt?' checked':''}> 作業類型</label>
     <label class="b4-radio-label"><input type="radio" name="b4g" value="itemType" onchange="setB4Group(this.value)"${it?' checked':''}> 品項類型</label>
     <label class="b4-check-label"><input type="checkbox"${_b4SubtotalOnly?' checked':''}${none?' disabled':''} onchange="setB4SubtotalOnly(this.checked)"> 只顯示小計</label>
@@ -1298,7 +1299,8 @@ function buildB4Settings() {
 }
 
 function buildGroupedRows(rows, subCount, getSubVal) {
-  const getGroupKey = r => _b4Group === 'workType' ? (r.workType || '未分類') : (r.itemType || '未分類');
+  const getGroupKey = r => _b4Group === 'person'   ? (r.person   || '未分類')
+    : _b4Group === 'workType' ? (r.workType || '未分類') : (r.itemType || '未分類');
   const groups = new Map();
   rows.forEach(row => {
     const k = getGroupKey(row);
@@ -1317,11 +1319,11 @@ function buildGroupedRows(rows, subCount, getSubVal) {
     const arrow = collapsed ? '▶' : '▼';
     const subTds = gSubs.map(v => `<td class="r">${v === 0 ? '—' : v.toLocaleString()}</td>`).join('');
     html += `<tr class="rpt-group-row" data-gk="${escAttr(gk)}" onclick="toggleB4Group(this.dataset.gk)">
-      <td colspan="3"><span class="group-toggle">${arrow}</span>${esc(gk)} <span style="font-weight:normal;font-size:.82em;color:#555">（${gCount} 項）</span></td>
+      <td colspan="4"><span class="group-toggle">${arrow}</span>${esc(gk)} <span style="font-weight:normal;font-size:.82em;color:#555">（${gCount} 項）</span></td>
       <td class="r">${gTotal.toLocaleString()}</td>${subTds}</tr>`;
     if (!collapsed) {
       html += gRows.map(row =>
-        `<tr><td>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td>`
+        `<tr><td>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td><td>${esc(row.person)}</td>`
         + `<td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>`
         + Array.from({length: subCount}, (_, i) => {
             const v = getSubVal(row, i);
@@ -1330,11 +1332,11 @@ function buildGroupedRows(rows, subCount, getSubVal) {
         + `</tr>`).join('');
     }
   }
-  return html || noDataRow(4 + subCount);
+  return html || noDataRow(5 + subCount);
 }
 
 function sortBlock4(col) {
-  _b4Sort = { col, asc: _b4Sort.col === col ? !_b4Sort.asc : (col < 3) };
+  _b4Sort = { col, asc: _b4Sort.col === col ? !_b4Sort.asc : (col < 4) };
   renderReport();
 }
 
@@ -1354,13 +1356,13 @@ function exportBlock4() {
   const ws = XLSX.utils.aoa_to_sheet(wsData);
   // 欄寬設定
   ws['!cols'] = [
-    {wch:12}, {wch:32}, {wch:12}, {wch:10},
-    ...Array(headers.length - 4).fill({wch:9})
+    {wch:12}, {wch:32}, {wch:12}, {wch:10}, {wch:10},
+    ...Array(headers.length - 5).fill({wch:9})
   ];
-  // 數字格式（第4欄起，數量欄）
+  // 數字格式（第5欄起，數量欄）
   const numFmt = '0';
   for (let r = 1; r < wsData.length; r++) {
-    for (let c = 3; c < headers.length; c++) {
+    for (let c = 4; c < headers.length; c++) {
       const addr = XLSX.utils.encode_cell({r, c});
       if (ws[addr] && typeof ws[addr].v === 'number') ws[addr].t = 'n', ws[addr].z = numFmt;
     }
