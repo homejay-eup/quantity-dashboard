@@ -195,7 +195,7 @@
   .reset-btn:hover { border-color: #ea4335; color: #ea4335; }
   .panel-header { border-bottom: 1px solid #f0f0f0; }
   .panel-item {
-    display: flex; align-items: center; gap: 8px;
+    display: flex; flex-direction: row; align-items: center; gap: 8px;
     padding: 6px 12px; font-size: 0.82rem; cursor: pointer;
   }
   .panel-item:hover { background: #f5f8ff; }
@@ -338,6 +338,11 @@
   table.rpt th.sort:hover { background: #64B5F6; }
   .rpt-placeholder { background: #fff; box-shadow: 0 1px 4px rgba(25,118,210,.07); }
 
+  /* 明細記錄 settings & group rows */
+  .detail-section.collapsed #detail-settings-slot { display: none; }
+  table.detail tr.det-group-row td { background: #E3F2FD !important; font-weight: 600; cursor: pointer; user-select: none; }
+  table.detail tr.det-group-row:hover td { background: #BBDEFB !important; }
+
   /* ── ④ 表格設定面板 ── */
   .b4-settings {
     padding: 10px 16px; border-bottom: 1px solid #d0e4ff;
@@ -443,6 +448,7 @@
     </div>
     <div class="detail-section">
       <div class="detail-header" onclick="toggleDetail()"><span class="toggle-arrow-d">▼</span>明細記錄<span id="detail-count">0 筆</span></div>
+      <div id="detail-settings-slot"></div>
       <div class="detail-wrap">
         <table class="detail">
           <thead><tr><th>日期</th><th>人員</th><th>作業類型</th><th>品號</th><th>品名</th><th style="text-align:right">數量</th><th>備註</th></tr></thead>
@@ -486,6 +492,9 @@ let _b4Sort  = { col: 3, asc: false }; // default: 數量合計 desc
 let _b4Group = 'none'; // 'none' | 'workType' | 'itemType'
 let _b4SubtotalOnly = false;
 let _b4CollapsedGroups = new Set();
+let _detGroup = 'none'; // 'none' | 'person' | 'workType' | 'itemType'
+let _detSubtotalOnly = false;
+let _detCollapsedGroups = new Set();
 
 // ── 登入 ──
 function handleCredentialResponse(response) {
@@ -652,24 +661,96 @@ function render() {
   renderDetailTable(data);
 }
 
+function buildDetSettings() {
+  const none = _detGroup === 'none';
+  return `<div class="b4-settings">
+    <span class="b4-settings-label">折疊依據：</span>
+    <label class="b4-radio-label"><input type="radio" name="detg" value="none" onchange="setDetGroup(this.value)"${none?' checked':''}> 無</label>
+    <label class="b4-radio-label"><input type="radio" name="detg" value="person" onchange="setDetGroup(this.value)"${_detGroup==='person'?' checked':''}> 人員</label>
+    <label class="b4-radio-label"><input type="radio" name="detg" value="workType" onchange="setDetGroup(this.value)"${_detGroup==='workType'?' checked':''}> 作業類型</label>
+    <label class="b4-radio-label"><input type="radio" name="detg" value="itemType" onchange="setDetGroup(this.value)"${_detGroup==='itemType'?' checked':''}> 品項類型</label>
+    <label class="b4-check-label"><input type="checkbox"${_detSubtotalOnly?' checked':''}${none?' disabled':''} onchange="setDetSubtotalOnly(this.checked)"> 只顯示小計</label>
+  </div>`;
+}
+
+function setDetGroup(val) {
+  _detGroup = val;
+  _detCollapsedGroups = new Set();
+  if (val === 'none') _detSubtotalOnly = false;
+  renderDetailTable(getFiltered());
+}
+
+function setDetSubtotalOnly(val) {
+  _detSubtotalOnly = val;
+  _detCollapsedGroups = new Set();
+  renderDetailTable(getFiltered());
+}
+
+function toggleDetGroup(key) {
+  if (_detCollapsedGroups.has(key)) _detCollapsedGroups.delete(key);
+  else _detCollapsedGroups.add(key);
+  renderDetailTable(getFiltered());
+}
+
+function renderDetRow(r) {
+  return `<tr>
+    <td>${esc(r.date)}</td>
+    <td>${esc(r.person) || '<span style="color:#bbb">—</span>'}</td>
+    <td class="td-worktype">${esc(r.workType)}</td>
+    <td style="color:#888">${esc(r.productCode)}</td>
+    <td>${esc(r.productName)}</td>
+    <td class="td-qty">${r.qty.toLocaleString()}</td>
+    <td class="td-remark" title="${esc(r.remark)}">${esc(r.remark) || ''}</td>
+  </tr>`;
+}
+
 function renderDetailTable(data) {
+  const slot = document.getElementById('detail-settings-slot');
+  if (slot) slot.innerHTML = buildDetSettings();
+
   const tbody = document.getElementById('detail-tbody');
   document.getElementById('detail-count').textContent = `${data.length.toLocaleString()} 筆`;
+
   if (!data.length) {
     tbody.innerHTML = `<tr><td colspan="7" class="no-data">沒有符合條件的記錄</td></tr>`;
     return;
   }
-  const sorted = [...data].sort((a,b) => b.date.localeCompare(a.date));
-  tbody.innerHTML = sorted.map(r => `
-    <tr>
-      <td>${esc(r.date)}</td>
-      <td>${esc(r.person) || '<span style="color:#bbb">—</span>'}</td>
-      <td class="td-worktype">${esc(r.workType)}</td>
-      <td style="color:#888">${esc(r.productCode)}</td>
-      <td>${esc(r.productName)}</td>
-      <td class="td-qty">${r.qty.toLocaleString()}</td>
-      <td class="td-remark" title="${esc(r.remark)}">${esc(r.remark) || ''}</td>
-    </tr>`).join('');
+
+  const sorted = [...data].sort((a, b) => b.date.localeCompare(a.date));
+
+  if (_detGroup === 'none') {
+    tbody.innerHTML = sorted.map(r => renderDetRow(r)).join('');
+    return;
+  }
+
+  const getKey = r => _detGroup === 'person'   ? (r.person   || '未分類')
+                    : _detGroup === 'workType'  ? (r.workType || '未分類')
+                    :                             (r.itemType || '未分類');
+
+  const groups = new Map();
+  sorted.forEach(r => {
+    const k = getKey(r);
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(r);
+  });
+
+  const sortedGroups = [...groups.entries()].sort((a, b) =>
+    b[1].reduce((s, r) => s + r.qty, 0) - a[1].reduce((s, r) => s + r.qty, 0));
+
+  let html = '';
+  for (const [gk, gRows] of sortedGroups) {
+    const gTotal = gRows.reduce((s, r) => s + r.qty, 0);
+    const isException = _detCollapsedGroups.has(gk);
+    const collapsed   = _detSubtotalOnly ? !isException : isException;
+    const arrow = collapsed ? '▶' : '▼';
+    html += `<tr class="det-group-row" data-gk="${escAttr(gk)}" onclick="toggleDetGroup(this.dataset.gk)">
+      <td colspan="5"><span class="group-toggle">${arrow}</span>${esc(gk)} <span style="font-weight:normal;font-size:.82em;color:#555">（${gRows.length} 筆）</span></td>
+      <td class="td-qty">${gTotal.toLocaleString()}</td>
+      <td></td>
+    </tr>`;
+    if (!collapsed) html += gRows.map(r => renderDetRow(r)).join('');
+  }
+  tbody.innerHTML = html;
 }
 
 function esc(s) {
