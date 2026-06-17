@@ -337,6 +337,26 @@
   table.rpt tr.total td { background: #BBDEFB !important; }
   table.rpt th.sort:hover { background: #64B5F6; }
   .rpt-placeholder { background: #fff; box-shadow: 0 1px 4px rgba(25,118,210,.07); }
+
+  /* ── ④ 表格設定面板 ── */
+  .b4-settings {
+    padding: 10px 16px; border-bottom: 1px solid #d0e4ff;
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    font-size: 0.84rem; background: #f0f7ff;
+  }
+  .b4-settings-label { color: #666; white-space: nowrap; }
+  .b4-radio-label { display: flex; align-items: center; gap: 4px; cursor: pointer; color: #444; }
+  .b4-radio-label input { cursor: pointer; }
+  .b4-check-label {
+    display: flex; align-items: center; gap: 4px; cursor: pointer; color: #444;
+    padding-left: 14px; border-left: 1px solid #c0d8f0;
+  }
+  .b4-check-label input { cursor: pointer; }
+  .b4-check-label input:disabled { cursor: not-allowed; opacity: .45; }
+  /* 分組小計列 */
+  table.rpt tr.rpt-group-row td { background: #BBDEFB !important; font-weight: 600; cursor: pointer; user-select: none; }
+  table.rpt tr.rpt-group-row:hover td { background: #90CAF9 !important; }
+  .group-toggle { font-size: 0.82em; margin-right: 5px; display: inline-block; min-width: 12px; }
 </style>
 </head>
 <body>
@@ -463,6 +483,9 @@ let allData = [];
 let charts = {};
 let _b4Cache = null; // { headers, rows, start, end, sheetName }
 let _b4Sort  = { col: 3, asc: false }; // default: 數量合計 desc
+let _b4Group = 'none'; // 'none' | 'workType' | 'itemType'
+let _b4SubtotalOnly = false;
+let _b4CollapsedGroups = new Set();
 
 // ── 登入 ──
 function handleCredentialResponse(response) {
@@ -905,7 +928,7 @@ function renderReport() {
     : breakdown === 'month'
     ? buildBlock4ByMonth(data, start, end)
     : buildBlock4Monthly(data, start, end);
-  body.innerHTML = buildBlock12(data) + buildBlock3(data) + block4;
+  body.innerHTML = buildBlock3(data) + block4;
 }
 
 // ① ② 並排
@@ -1034,16 +1057,18 @@ function buildBlock4Monthly(data, startDate, endDate) {
   const si=c=>'<span style="font-size:.78em;opacity:'+(sc===c?.9:.3)+'">'+( sc!==c?'⇅':sa?'↑':'↓')+'</span>';
   const thCols = weeks.map((wk,i) => `<th class="r sort" onclick="sortBlock4(${i+4})">${wk.label} ${si(i+4)}</th>`).join('');
   const colCount = 4 + weeks.length;
-  const body = rows.map(row => {
-    const wCells = weeks.map((_,i) => {
-      const v = row.byWeek[i];
-      return `<td class="r${v===0?' zero':''}">${v===0?'—':v.toLocaleString()}</td>`;
-    }).join('');
-    return `<tr><td>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td><td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>${wCells}</tr>`;
-  }).join('') || noDataRow(colCount);
+  const body = _b4Group !== 'none'
+    ? buildGroupedRows(rows, weeks.length, (row, i) => row.byWeek[i] || 0)
+    : (rows.map(row => {
+        const wCells = weeks.map((_,i) => {
+          const v = row.byWeek[i];
+          return `<td class="r${v===0?' zero':''}">${v===0?'—':v.toLocaleString()}</td>`;
+        }).join('');
+        return `<tr><td>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td><td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>${wCells}</tr>`;
+      }).join('') || noDataRow(colCount));
   return `<div class="rpt-block">
     <div class="rpt-title" onclick="toggleBlock(this)"><span class="toggle-arrow">▼</span>④ 品號品名彙總（含各週細項）<button class="export-btn" onclick="event.stopPropagation();exportBlock4()">⬇ 下載 .xlsx</button></div>
-    <div class="rpt-wrap"><table class="rpt">
+    <div class="rpt-wrap">${buildB4Settings()}<table class="rpt">
       <thead><tr><th class="sort" onclick="sortBlock4(0)">品號 ${si(0)}</th><th class="sort" onclick="sortBlock4(1)">品名 ${si(1)}</th><th class="sort" onclick="sortBlock4(2)">作業類型 ${si(2)}</th><th class="r sort" onclick="sortBlock4(3)">數量合計 ${si(3)}</th>${thCols}</tr></thead>
       <tbody>${body}</tbody>
     </table></div></div>`;
@@ -1082,16 +1107,18 @@ function buildBlock4Weekly(data, startDate, endDate) {
   const si=c=>'<span style="font-size:.78em;opacity:'+(sc===c?.9:.3)+'">'+( sc!==c?'⇅':sa?'↑':'↓')+'</span>';
   const thCols = dates.map((d,i) => `<th class="r sort" onclick="sortBlock4(${i+4})">${dateLabel(d)} ${si(i+4)}</th>`).join('');
   const colCount = 4 + dates.length;
-  const body = rows.map(row => {
-    const dCells = dates.map(d => {
-      const v = row.byDate[d];
-      return `<td class="r${v===0?' zero':''}">${v===0?'—':v.toLocaleString()}</td>`;
-    }).join('');
-    return `<tr><td>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td><td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>${dCells}</tr>`;
-  }).join('') || noDataRow(colCount);
+  const body = _b4Group !== 'none'
+    ? buildGroupedRows(rows, dates.length, (row, i) => row.byDate[dates[i]] || 0)
+    : (rows.map(row => {
+        const dCells = dates.map(d => {
+          const v = row.byDate[d];
+          return `<td class="r${v===0?' zero':''}">${v===0?'—':v.toLocaleString()}</td>`;
+        }).join('');
+        return `<tr><td>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td><td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>${dCells}</tr>`;
+      }).join('') || noDataRow(colCount));
   return `<div class="rpt-block">
     <div class="rpt-title" onclick="toggleBlock(this)"><span class="toggle-arrow">▼</span>④ 品號品名彙總（含各日細項）<button class="export-btn" onclick="event.stopPropagation();exportBlock4()">⬇ 下載 .xlsx</button></div>
-    <div class="rpt-wrap"><table class="rpt">
+    <div class="rpt-wrap">${buildB4Settings()}<table class="rpt">
       <thead><tr><th class="sort" onclick="sortBlock4(0)">品號 ${si(0)}</th><th class="sort" onclick="sortBlock4(1)">品名 ${si(1)}</th><th class="sort" onclick="sortBlock4(2)">作業類型 ${si(2)}</th><th class="r sort" onclick="sortBlock4(3)">數量合計 ${si(3)}</th>${thCols}</tr></thead>
       <tbody>${body}</tbody>
     </table></div></div>`;
@@ -1136,16 +1163,18 @@ function buildBlock4ByMonth(data, startDate, endDate) {
   const si=c=>'<span style="font-size:.78em;opacity:'+(sc===c?.9:.3)+'">'+( sc!==c?'⇅':sa?'↑':'↓')+'</span>';
   const thCols = months.map((mo,i) => `<th class="r sort" onclick="sortBlock4(${i+4})">${mo.label} ${si(i+4)}</th>`).join('');
   const colCount = 4 + months.length;
-  const body = rows.map(row => {
-    const mCells = months.map(mo => {
-      const v = row.byMonth[mo.ym];
-      return `<td class="r${v===0?' zero':''}">${v===0?'—':v.toLocaleString()}</td>`;
-    }).join('');
-    return `<tr><td>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td><td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>${mCells}</tr>`;
-  }).join('') || noDataRow(colCount);
+  const body = _b4Group !== 'none'
+    ? buildGroupedRows(rows, months.length, (row, i) => row.byMonth[months[i].ym] || 0)
+    : (rows.map(row => {
+        const mCells = months.map(mo => {
+          const v = row.byMonth[mo.ym];
+          return `<td class="r${v===0?' zero':''}">${v===0?'—':v.toLocaleString()}</td>`;
+        }).join('');
+        return `<tr><td>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td><td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>${mCells}</tr>`;
+      }).join('') || noDataRow(colCount));
   return `<div class="rpt-block">
     <div class="rpt-title" onclick="toggleBlock(this)"><span class="toggle-arrow">▼</span>④ 品號品名彙總（含各月細項）<button class="export-btn" onclick="event.stopPropagation();exportBlock4()">⬇ 下載 .xlsx</button></div>
-    <div class="rpt-wrap"><table class="rpt">
+    <div class="rpt-wrap">${buildB4Settings()}<table class="rpt">
       <thead><tr><th class="sort" onclick="sortBlock4(0)">品號 ${si(0)}</th><th class="sort" onclick="sortBlock4(1)">品名 ${si(1)}</th><th class="sort" onclick="sortBlock4(2)">作業類型 ${si(2)}</th><th class="r sort" onclick="sortBlock4(3)">數量合計 ${si(3)}</th>${thCols}</tr></thead>
       <tbody>${body}</tbody>
     </table></div></div>`;
@@ -1153,6 +1182,74 @@ function buildBlock4ByMonth(data, startDate, endDate) {
 
 function noDataRow(cols) {
   return `<tr><td colspan="${cols}" class="no-data">無資料</td></tr>`;
+}
+
+function setB4Group(val) {
+  _b4Group = val;
+  _b4CollapsedGroups = new Set();
+  if (val === 'none') _b4SubtotalOnly = false;
+  renderReport();
+}
+
+function setB4SubtotalOnly(val) {
+  _b4SubtotalOnly = val;
+  _b4CollapsedGroups = new Set();
+  renderReport();
+}
+
+function toggleB4Group(key) {
+  if (_b4CollapsedGroups.has(key)) _b4CollapsedGroups.delete(key);
+  else _b4CollapsedGroups.add(key);
+  renderReport();
+}
+
+function buildB4Settings() {
+  const none = _b4Group === 'none';
+  const wt = _b4Group === 'workType';
+  const it = _b4Group === 'itemType';
+  return `<div class="b4-settings">
+    <span class="b4-settings-label">折疊依據：</span>
+    <label class="b4-radio-label"><input type="radio" name="b4g" value="none" onchange="setB4Group(this.value)"${none?' checked':''}> 無</label>
+    <label class="b4-radio-label"><input type="radio" name="b4g" value="workType" onchange="setB4Group(this.value)"${wt?' checked':''}> 作業類型</label>
+    <label class="b4-radio-label"><input type="radio" name="b4g" value="itemType" onchange="setB4Group(this.value)"${it?' checked':''}> 品項類型</label>
+    <label class="b4-check-label"><input type="checkbox"${_b4SubtotalOnly?' checked':''}${none?' disabled':''} onchange="setB4SubtotalOnly(this.checked)"> 只顯示小計</label>
+  </div>`;
+}
+
+function buildGroupedRows(rows, subCount, getSubVal) {
+  const getGroupKey = r => _b4Group === 'workType' ? (r.workType || '未分類') : (r.itemType || '未分類');
+  const groups = new Map();
+  rows.forEach(row => {
+    const k = getGroupKey(row);
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(row);
+  });
+  const sortedGroups = [...groups.entries()].sort((a, b) =>
+    b[1].reduce((s, r) => s + r.total, 0) - a[1].reduce((s, r) => s + r.total, 0));
+  let html = '';
+  for (const [gk, gRows] of sortedGroups) {
+    const gTotal = gRows.reduce((s, r) => s + r.total, 0);
+    const gSubs  = Array.from({length: subCount}, (_, i) => gRows.reduce((s, r) => s + getSubVal(r, i), 0));
+    const gCount = gRows.length;
+    const isException = _b4CollapsedGroups.has(gk);
+    const collapsed   = _b4SubtotalOnly ? !isException : isException;
+    const arrow = collapsed ? '▶' : '▼';
+    const subTds = gSubs.map(v => `<td class="r">${v === 0 ? '—' : v.toLocaleString()}</td>`).join('');
+    html += `<tr class="rpt-group-row" onclick="toggleB4Group(${JSON.stringify(gk)})">
+      <td colspan="3"><span class="group-toggle">${arrow}</span>${esc(gk)} <span style="font-weight:normal;font-size:.82em;color:#555">（${gCount} 項）</span></td>
+      <td class="r">${gTotal.toLocaleString()}</td>${subTds}</tr>`;
+    if (!collapsed) {
+      html += gRows.map(row =>
+        `<tr><td>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td>`
+        + `<td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>`
+        + Array.from({length: subCount}, (_, i) => {
+            const v = getSubVal(row, i);
+            return `<td class="r${v === 0 ? ' zero' : ''}">${v === 0 ? '—' : v.toLocaleString()}</td>`;
+          }).join('')
+        + `</tr>`).join('');
+    }
+  }
+  return html || noDataRow(4 + subCount);
 }
 
 function sortBlock4(col) {
