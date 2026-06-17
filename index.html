@@ -362,6 +362,17 @@
   table.rpt tr.rpt-group-row td { background: #BBDEFB !important; font-weight: 600; cursor: pointer; user-select: none; }
   table.rpt tr.rpt-group-row:hover td { background: #90CAF9 !important; }
   .group-toggle { font-size: 0.82em; margin-right: 5px; display: inline-block; min-width: 12px; }
+  /* ④ 行內展開明細 */
+  table.rpt tr.b4-agg-row { cursor: pointer; }
+  table.rpt tr.b4-agg-row:hover td { background: #e8f0fe !important; }
+  .row-toggle { font-size: 0.75em; margin-right: 4px; opacity: 0.5; display: inline-block; min-width: 10px; }
+  .b4-detail-row > td { padding: 4px 8px 6px 32px !important; background: #f5f9ff !important; border-top: none !important; }
+  .b4-detail-table { font-size: 0.8rem; border-collapse: collapse; }
+  .b4-detail-table th { color: #555; font-weight: 600; padding: 3px 10px; border-bottom: 2px solid #c8daf0; text-align: left; }
+  .b4-detail-table th.r { text-align: right; }
+  .b4-detail-table td { padding: 3px 10px; border-bottom: 1px solid #e4edf8; color: #444; }
+  .b4-detail-table td.r { text-align: right; }
+  .b4-detail-table tr:last-child td { border-bottom: none; }
 </style>
 </head>
 <body>
@@ -495,6 +506,7 @@ let _b4CollapsedGroups = new Set();
 let _detGroup = 'none'; // 'none' | 'person' | 'workType' | 'itemType'
 let _detSubtotalOnly = false;
 let _detCollapsedGroups = new Set();
+let _rawRecords = [];
 
 // ── 登入 ──
 function handleCredentialResponse(response) {
@@ -1004,6 +1016,7 @@ function renderReport() {
   const body  = document.getElementById('rpt-r-body');
   if (!start || !end || start > end) { body.innerHTML = '<div class="rpt-placeholder">請選擇開始與結束日期</div>'; return; }
   const data = getFilteredData(start, end);
+  _rawRecords = data;
   const block4 = breakdown === 'day'
     ? buildBlock4Weekly(data, start, end)
     : breakdown === 'month'
@@ -1141,11 +1154,12 @@ function buildBlock4Monthly(data, startDate, endDate) {
   const body = _b4Group !== 'none'
     ? buildGroupedRows(rows, weeks.length, (row, i) => row.byWeek[i] || 0)
     : (rows.map(row => {
+        const rk = `${row.productCode}\0${row.productName}\0${row.workType}\0${row.person}`;
         const wCells = weeks.map((_,i) => {
           const v = row.byWeek[i];
           return `<td class="r${v===0?' zero':''}">${v===0?'—':v.toLocaleString()}</td>`;
         }).join('');
-        return `<tr><td>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td><td>${esc(row.person)}</td><td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>${wCells}</tr>`;
+        return `<tr class="b4-agg-row" data-rk="${escAttr(rk)}" onclick="toggleB4Row(this)"><td><span class="row-toggle">▶</span>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td><td>${esc(row.person)}</td><td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>${wCells}</tr>${getDetailRows(rk, colCount)}`;
       }).join('') || noDataRow(colCount));
   return `<div class="rpt-block">
     <div class="rpt-title" onclick="toggleBlock(this)"><span class="toggle-arrow">▼</span>④ 品號品名彙總（含各週細項）<button class="export-btn" onclick="event.stopPropagation();exportBlock4()">⬇ 下載 .xlsx</button></div>
@@ -1191,11 +1205,12 @@ function buildBlock4Weekly(data, startDate, endDate) {
   const body = _b4Group !== 'none'
     ? buildGroupedRows(rows, dates.length, (row, i) => row.byDate[dates[i]] || 0)
     : (rows.map(row => {
+        const rk = `${row.productCode}\0${row.productName}\0${row.workType}\0${row.person}`;
         const dCells = dates.map(d => {
           const v = row.byDate[d];
           return `<td class="r${v===0?' zero':''}">${v===0?'—':v.toLocaleString()}</td>`;
         }).join('');
-        return `<tr><td>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td><td>${esc(row.person)}</td><td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>${dCells}</tr>`;
+        return `<tr class="b4-agg-row" data-rk="${escAttr(rk)}" onclick="toggleB4Row(this)"><td><span class="row-toggle">▶</span>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td><td>${esc(row.person)}</td><td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>${dCells}</tr>${getDetailRows(rk, colCount)}`;
       }).join('') || noDataRow(colCount));
   return `<div class="rpt-block">
     <div class="rpt-title" onclick="toggleBlock(this)"><span class="toggle-arrow">▼</span>④ 品號品名彙總（含各日細項）<button class="export-btn" onclick="event.stopPropagation();exportBlock4()">⬇ 下載 .xlsx</button></div>
@@ -1247,11 +1262,12 @@ function buildBlock4ByMonth(data, startDate, endDate) {
   const body = _b4Group !== 'none'
     ? buildGroupedRows(rows, months.length, (row, i) => row.byMonth[months[i].ym] || 0)
     : (rows.map(row => {
+        const rk = `${row.productCode}\0${row.productName}\0${row.workType}\0${row.person}`;
         const mCells = months.map(mo => {
           const v = row.byMonth[mo.ym];
           return `<td class="r${v===0?' zero':''}">${v===0?'—':v.toLocaleString()}</td>`;
         }).join('');
-        return `<tr><td>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td><td>${esc(row.person)}</td><td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>${mCells}</tr>`;
+        return `<tr class="b4-agg-row" data-rk="${escAttr(rk)}" onclick="toggleB4Row(this)"><td><span class="row-toggle">▶</span>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td><td>${esc(row.person)}</td><td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>${mCells}</tr>${getDetailRows(rk, colCount)}`;
       }).join('') || noDataRow(colCount));
   return `<div class="rpt-block">
     <div class="rpt-title" onclick="toggleBlock(this)"><span class="toggle-arrow">▼</span>④ 品號品名彙總（含各月細項）<button class="export-btn" onclick="event.stopPropagation();exportBlock4()">⬇ 下載 .xlsx</button></div>
@@ -1322,17 +1338,42 @@ function buildGroupedRows(rows, subCount, getSubVal) {
       <td colspan="4"><span class="group-toggle">${arrow}</span>${esc(gk)} <span style="font-weight:normal;font-size:.82em;color:#555">（${gCount} 項）</span></td>
       <td class="r">${gTotal.toLocaleString()}</td>${subTds}</tr>`;
     if (!collapsed) {
-      html += gRows.map(row =>
-        `<tr><td>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td><td>${esc(row.person)}</td>`
-        + `<td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>`
-        + Array.from({length: subCount}, (_, i) => {
-            const v = getSubVal(row, i);
-            return `<td class="r${v === 0 ? ' zero' : ''}">${v === 0 ? '—' : v.toLocaleString()}</td>`;
-          }).join('')
-        + `</tr>`).join('');
+      html += gRows.map(row => {
+        const rk = `${row.productCode}\0${row.productName}\0${row.workType}\0${row.person}`;
+        return `<tr class="b4-agg-row" data-rk="${escAttr(rk)}" onclick="toggleB4Row(this)"><td><span class="row-toggle">▶</span>${esc(row.productCode)}</td><td>${esc(row.productName)}</td><td>${esc(row.workType)}</td><td>${esc(row.person)}</td>`
+          + `<td class="r" style="font-weight:600">${row.total.toLocaleString()}</td>`
+          + Array.from({length: subCount}, (_, i) => {
+              const v = getSubVal(row, i);
+              return `<td class="r${v === 0 ? ' zero' : ''}">${v === 0 ? '—' : v.toLocaleString()}</td>`;
+            }).join('')
+          + `</tr>` + getDetailRows(rk, 5 + subCount);
+      }).join('');
     }
   }
   return html || noDataRow(5 + subCount);
+}
+
+function getDetailRows(key, colCount) {
+  const [pc, pn, wt, ps] = key.split('\0');
+  const recs = _rawRecords.filter(r =>
+    r.productCode === pc && r.productName === pn && r.workType === wt && r.person === ps
+  ).sort((a, b) => a.date.localeCompare(b.date));
+  if (!recs.length) return '';
+  const inner = recs.map(r =>
+    `<tr><td>${esc(r.date)}</td><td class="r">${r.qty.toLocaleString()}</td><td>${esc(r.remark||'')}</td></tr>`
+  ).join('');
+  return `<tr class="b4-detail-row" style="display:none"><td colspan="${colCount}" class="b4-detail-cell"><table class="b4-detail-table"><thead><tr><th>日期</th><th class="r">數量</th><th>備註</th></tr></thead><tbody>${inner}</tbody></table></td></tr>`;
+}
+
+function toggleB4Row(el) {
+  const arrow = el.querySelector('.row-toggle');
+  const expanding = arrow.textContent === '▶';
+  arrow.textContent = expanding ? '▼' : '▶';
+  let sib = el.nextElementSibling;
+  while (sib && sib.classList.contains('b4-detail-row')) {
+    sib.style.display = expanding ? '' : 'none';
+    sib = sib.nextElementSibling;
+  }
 }
 
 function sortBlock4(col) {
