@@ -922,9 +922,14 @@ function onItemChange(prefix, type, clickedEl) {
 }
 
 function onAllChange(prefix, type, el) {
-  document.querySelectorAll('.'+prefix+'-'+type+'-cb').forEach(cb=>cb.checked=true);
-  el.checked=true; el.indeterminate=false;
-  setFilterState(type,null);
+  if (el.checked) {
+    document.querySelectorAll('.'+prefix+'-'+type+'-cb').forEach(cb=>cb.checked=true);
+    el.indeterminate=false;
+    setFilterState(type,null);
+  } else {
+    document.querySelectorAll('.'+prefix+'-'+type+'-cb').forEach(cb=>cb.checked=false);
+    setFilterState(type, new Set());
+  }
   saveListFilter(type); updateFilterBadges(); rerender();
 }
 
@@ -963,8 +968,13 @@ function onProductChange(prefix) {
 }
 
 function onProductAllChange(prefix, el) {
-  document.querySelectorAll('.'+prefix+'-product-cb').forEach(cb=>cb.checked=true);
-  el.checked=true; el.indeterminate=false; filterProducts=null;
+  if (el.checked) {
+    document.querySelectorAll('.'+prefix+'-product-cb').forEach(cb=>cb.checked=true);
+    el.indeterminate=false; filterProducts=null;
+  } else {
+    document.querySelectorAll('.'+prefix+'-product-cb').forEach(cb=>cb.checked=false);
+    filterProducts=new Set();
+  }
   saveProductFilter(); updateFilterBadges(); rerender();
 }
 
