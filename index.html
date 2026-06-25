@@ -441,6 +441,7 @@
       <button class="quick-btn" onclick="setQuick('lastweek')">上週</button>
       <button class="quick-btn" onclick="setQuick('month')">本月</button>
       <div id="d-filter-slot" style="display:contents"></div>
+      <button class="btn-reset-all" onclick="resetAllFilters()" style="display:none;background:#e53935;color:#fff;border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:0.83rem;">✕ 重設篩選</button>
       <button id="btn-refresh" onclick="loadData()">重新整理</button>
       <span id="loading">載入中…</span>
     </div>
@@ -482,6 +483,7 @@
           <option value="month">月別</option>
         </select></label>
         <div id="r-filter-slot" style="display:contents"></div>
+        <button class="btn-reset-all" onclick="resetAllFilters()" style="display:none;background:#e53935;color:#fff;border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:0.83rem;">✕ 重設篩選</button>
       </div>
       <div id="rpt-r-body"><div class="rpt-placeholder">請選擇開始與結束日期</div></div>
     </div>
@@ -989,6 +991,29 @@ function saveListFilter(type) {
   try{localStorage.setItem(key,JSON.stringify(state?[...state]:null));}catch(e){}
 }
 
+function resetAllFilters() {
+  filterPersons=null; filterWorkTypes=null; filterItemTypes=null; filterProducts=null;
+  try{
+    localStorage.removeItem('eup-qty-persons');
+    localStorage.removeItem('eup-qty-wtypes');
+    localStorage.removeItem('eup-qty-itypes');
+    localStorage.removeItem(LS_KEY);
+  }catch(e){}
+  updateFilterBadges();
+  updateResetBtn();
+  rerender();
+}
+
+function isAnyFilterActive() {
+  return filterPersons!==null || filterWorkTypes!==null || filterItemTypes!==null || filterProducts!==null;
+}
+
+function updateResetBtn() {
+  document.querySelectorAll('.btn-reset-all').forEach(btn => {
+    btn.style.display = isAnyFilterActive() ? '' : 'none';
+  });
+}
+
 function updateFilterBadges() {
   ['r','d'].forEach(t => {
     setBadge(t+'-person-badge',  filterPersons,   PEOPLE.length,         '人');
@@ -996,6 +1021,7 @@ function updateFilterBadges() {
     setBadge(t+'-itype-badge',   filterItemTypes, allItemTypeList.length, '類');
     setProductBadge(t+'-product-badge');
   });
+  updateResetBtn();
 }
 function setBadge(id,state,total,unit){
   const el=document.getElementById(id); if(!el) return;
